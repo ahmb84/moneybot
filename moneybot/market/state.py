@@ -56,7 +56,7 @@ class MarketState:
         return self.balances[coin]
 
     # TODO types
-    def price(self, market, key='weightedAverage'):
+    def price(self, market, key='weighted_average'):
         '''
         Returns the price of a market, in terms of the base asset.
         '''

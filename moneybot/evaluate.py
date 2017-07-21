@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 from logging import getLogger
-from multiprocessing import Pool
 from typing import List
-from typing import Tuple
+from typing import Iterable
 
 from numpy import mean
 from pandas import date_range
@@ -57,12 +56,14 @@ def summary(
     return rois_desc
 
 
-# This needs to be a top-level method
-# So that it can be pickled by multiprocessing.Pool
-def backtest(fund_dates: Tuple[Fund, str, str]) -> List[float]:
-    fund, start, end = fund_dates
-    logger.info(f'Testing from {start} to {end}')
-    return list(fund.begin_backtest(start, end))
+def backtests(
+        fund: Fund,
+        start_times: List[str]
+) -> Iterable[List[float]]:
+    for i, start_time in enumerate(start_times[:-1]):
+        end_time = start_times[i + 1]
+        logger.info(f'Testing from {start_time} to {end_time}')
+        yield list(fund.begin_backtest(start_time, end_time))
 
 
 def evaluate(
@@ -71,20 +72,9 @@ def evaluate(
     end_date: str,
     duration_days: int = 90,
     window_distance_days: int = 30,
-    verbose: bool = True,
-    num_threads: int = 4,
 ) -> Series:
     start = Timestamp(start_date)
     end = Timestamp(end_date)
     start_times = date_range(start, end, freq='{!s}d'.format(window_distance_days))
-
-    # We make tuples of (Fund, Date, Date)
-    # This gets passed to `backtest()` using Pool().map()
-    time_tuples = []
-    for i, start_time in enumerate(start_times[:-1]):
-        time_tuple = (fund, start_time, start_times[i + 1])
-        time_tuples.append(time_tuple)
-
-    with Pool(num_threads) as p:
-        results = p.map(backtest, time_tuples)
-        return summary(results, duration_days)
+    backtest_results = list(backtests(fund, start_times))
+    return summary(backtest_results, duration_days)

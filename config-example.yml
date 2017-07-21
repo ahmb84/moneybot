@@ -1,9 +1,9 @@
-influxdb:
-  host: localhost
-  port: 8086
-  username: root
-  password: root
-  database: historical-poloniex
+postgres:
+  host: 192.168.99.100
+  port: 5432
+  username: postgres
+  password: secretpass
+  dbname: postgres
 
 poloniex:
   key: YOUR_API_KEY

@@ -3,3 +3,5 @@ python:
   - "3.6"
 install: "pip3 install tox"
 script: tox
+notifications:
+  slack: adventrous:Q0zC4sdqpCtfv0YhJ2bjRYqh
