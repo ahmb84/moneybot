@@ -16,7 +16,7 @@ source venv/bin/activate
 pip3 install -r requirements.txt
 ```
 
-Next, set up the Postgres database and restore the historical data. We provide scripts to automate this process with Docker (note, however, that you'll need to install postgres on your system for the restore - `brew install postgresql` with homebrew):
+Next, set up the Postgres database and restore the historical data. We provide scripts to automate this process with Docker (note, however, that you'll need to install postgres on your system for the restore, `brew install postgresql` with homebrew):
 
 ```
 cd local-services/postgres
@@ -25,7 +25,7 @@ make server
 ./restore.sh
 ```
 
-(By default, the password is `secretpass` - you can change that in `local-services/postgres/Makefile`.)
+(By default, the database password is `secretpass` - you can change that in `local-services/postgres/Makefile`.)
 
 # use
 
