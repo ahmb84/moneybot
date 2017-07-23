@@ -6,6 +6,7 @@ from typing import Dict
 from typing import List
 
 from pandas import Series
+from pandas import to_datetime
 
 from moneybot.clients import Postgres
 from moneybot.market.scrape import scrape_since_last_reading
@@ -78,6 +79,6 @@ class MarketHistory:
         cursor.execute(query)
         rows = cursor.fetchall()
         df = Series([p[1] for p in rows])
-        df.index = [p[0] for p in rows]
+        df.index = to_datetime([p[0] for p in rows])
         cursor.close()
         return df
