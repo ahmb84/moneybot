@@ -129,12 +129,12 @@ class LiveMarketAdapter(MarketAdapter):
         market_state: MarketState,
     ) -> Dict:
         # if we're trading FROM fiat, that's a "sell"
-        if proposed_trade.from_coin == market_state.fiat:
+        if proposed_trade.sell_coin == market_state.fiat:
             return self._purchase_helper(
                 'buy',
                 proposed_trade.market_name,
                 proposed_trade.market_price,
-                proposed_trade.ask_amount,
+                proposed_trade.buy_amount,
                 self.polo.buy,
                 # We try to buy low,
                 # But don't always get to,
@@ -143,12 +143,12 @@ class LiveMarketAdapter(MarketAdapter):
             )
 
         # if we're trading TO fiat, that's a "sell"
-        elif proposed_trade.to_coin == market_state.fiat:
+        elif proposed_trade.buy_coin == market_state.fiat:
             return self._purchase_helper(
                 'sell',
                 proposed_trade.market_name,
                 proposed_trade.market_price,
-                proposed_trade.bid_amount,
+                proposed_trade.sell_amount,
                 self.polo.sell,
                 # We try to sell high,
                 # But don't always get to,

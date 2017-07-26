@@ -28,17 +28,17 @@ class ProposedTrade:
 
     def __init__(
         self,
-        from_coin: str,
-        to_coin: str,
+        sell_coin: str,
+        buy_coin: str,
         fiat: str = 'BTC',
         fee: float = 0.0025,
     ) -> None:
-        self.from_coin = from_coin
-        self.to_coin = to_coin
+        self.sell_coin = sell_coin
+        self.buy_coin = buy_coin
         self.fiat = fiat
         self.price = 0.0
-        self.ask_amount = 0.0
-        self.bid_amount = 0.0
+        self.buy_amount = 0.0
+        self.sell_amount = 0.0
         self.fee = fee
 
         # get the Poloniex market name
@@ -46,16 +46,16 @@ class ProposedTrade:
         # By seeing whether from_ or to_ are the fiat,
         # we will construct the proper market name.
         # (yes, we can only trade directly fiat to/from fiat for now. sorry!)
-        if from_coin == fiat:
-            self.market_name = self._get_market_name(fiat, to_coin)
-        elif to_coin == fiat:
-            self.market_name = self._get_market_name(fiat, from_coin)
+        if sell_coin == fiat:
+            self.market_name = self._get_market_name(fiat, buy_coin)
+        elif buy_coin == fiat:
+            self.market_name = self._get_market_name(fiat, sell_coin)
 
     def __str__(self) -> str:
         return '{!s} {!s} for {!s} {!s} (price of {!s} {!s}/{!s} on market {!s})'.format(
-            self.bid_amount, self.from_coin,
-            self.ask_amount, self.to_coin,
-            self.price, self.from_coin, self.to_coin,
+            self.sell_amount, self.sell_coin,
+            self.buy_amount, self.buy_coin,
+            self.price, self.sell_coin, self.buy_coin,
             self.market_name)
 
     '''
@@ -98,30 +98,30 @@ class ProposedTrade:
         # So, we keep around a self.market_price to match
         # self.price is always in the quote currency.
         self.market_price = base_price
-        if self.to_coin == self.fiat:
+        if self.buy_coin == self.fiat:
             self.price = 1 / base_price
         else:
             self.price = base_price
 
-    def set_bid_amount(
+    def set_sell_amount(
         self,
         amount: float,
         market_state: MarketState,
     ):
         '''
-        Set how much `from_coin` we are putting on sale, by value.
+        Set how much `sell_coin` we are putting on sale, by value.
 
         For convenience: we can estimate the price of the asset
-        to set the `ask_amount` as well.
+        to set the `buy_amount` as well.
         When `self.estimate_price_with` is passed a `chart` object,
         it will pass this down to `estimate_price()`.
         '''
-        # if amount > market_state.balance(self.from_coin):
-        #     self.bid_amount = market_state.balance(self.from_coin)
+        # if amount > market_state.balance(self.sell_coin):
+        #     self.sell_amount = market_state.balance(self.sell_coin)
         # else:
-        self.bid_amount = amount
+        self.sell_amount = amount
         self.estimate_price(market_state)
-        self.ask_amount = self._purchase_amount(amount, self.price)
+        self.buy_amount = self._purchase_amount(amount, self.price)
 
     def sell_to_achieve_value_of(
         self,
@@ -129,7 +129,7 @@ class ProposedTrade:
         market_state: MarketState,
     ) -> None:
         '''
-        Sets `self.bid_amount`, `self.ask_amount`, `self.price`
+        Sets `self.sell_amount`, `self.buy_amount`, `self.price`
         such that the proposed trade would leave us with a
         holding of `desired_value`.
         '''
@@ -143,14 +143,14 @@ class ProposedTrade:
         # After rebalance, we want the value of the coin we're trading to
         # to be equal to the ideal value (in fiat).
         # First we'll find the value of the coin we currently hold.
-        current_value = market_state.balance(self.from_coin) * self.price
+        current_value = market_state.balance(self.sell_coin) * self.price
         # To find how much coin we want to sell,
         # we'll subtract our holding's value from the ideal value
         # to produce the value of coin we must sell
         value_to_sell = current_value - desired_value
         # Now we find the amount of coin equal to this value
         amount_to_sell = value_to_sell / self.price
-        self.set_bid_amount(amount_to_sell, market_state)
+        self.set_sell_amount(amount_to_sell, market_state)
 
 
 class Strategy(metaclass=ABCMeta):
@@ -209,7 +209,7 @@ class Strategy(metaclass=ABCMeta):
                 # given the fiat value we want that coin to have after the trade
                 proposed = ProposedTrade(coin, self.fiat)
                 proposed.sell_to_achieve_value_of(fiat_value_per_coin, market_state)
-                if proposed.bid_amount > 0:
+                if proposed.sell_amount > 0:
                     yield proposed
 
     def _propose_trades_from_fiat(
@@ -220,7 +220,7 @@ class Strategy(metaclass=ABCMeta):
     ) -> Generator[ProposedTrade, None, None]:
         for coin in coins:
             proposed = ProposedTrade(self.fiat, coin)
-            proposed.set_bid_amount(fiat_investment_per_coin, market_state)
+            proposed.set_sell_amount(fiat_investment_per_coin, market_state)
             yield proposed
 
     def initial_proposed_trades(
@@ -260,7 +260,7 @@ class Strategy(metaclass=ABCMeta):
         if self.fiat in coins_to_rebalance and len(proposed_trades_to_fiat) > 0:
             fiat_after_trades = est_bals_after_fiat_trades[self.fiat]
             to_redistribute = fiat_after_trades - ideal_fiat_value_per_coin
-            coins_divested_from = [proposed.from_coin for proposed in proposed_trades_to_fiat]
+            coins_divested_from = [proposed.sell_coin for proposed in proposed_trades_to_fiat]
             coins_to_buy = possible_investments - set(coins_divested_from) - {self.fiat}
             to_redistribute_per_coin = to_redistribute / len(coins_to_buy)
             proposed_trades_from_fiat = self._propose_trades_from_fiat(coins_to_buy,

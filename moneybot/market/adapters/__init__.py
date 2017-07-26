@@ -64,25 +64,25 @@ class MarketAdapter(metaclass=ABCMeta):
 
         # Check that we have enough to sell
         try:
-            held_amount = self.market_state.balances[proposed.from_coin]
+            held_amount = self.market_state.balances[proposed.sell_coin]
         except KeyError:
             logger.warning(
-                f"Trying to sel {proposed.from_coin}, but none is held."
+                f"Trying to sel {proposed.sell_coin}, but none is held."
             )
             return None
 
         if held_amount == 0:
             logger.warning(
-                f"Trying to sell {proposed.from_coin}, but none is held."
+                f"Trying to sell {proposed.sell_coin}, but none is held."
             )
             return None
 
-        if proposed.bid_amount > held_amount:
+        if proposed.sell_amount > held_amount:
             logger.warning(
-                f"Holding {held_amount} {proposed.from_coin}, but trying to sell more than is held, {proposed.bid_amount}."
+                f"Holding {held_amount} {proposed.sell_coin}, but trying to sell more than is held, {proposed.sell_amount}."
                 "Simply selling maximum amount."
             )
-            proposed.set_bid_amount(held_amount, self.market_state)
+            proposed.set_sell_amount(held_amount, self.market_state)
             return proposed
 
         # Check that proposed bid has a price:
@@ -93,7 +93,7 @@ class MarketAdapter(metaclass=ABCMeta):
             return None
 
         # Check that we are trading a positive amount for a positive amount
-        if proposed.bid_amount < 0 or proposed.ask_amount < 0:
+        if proposed.sell_amount < 0 or proposed.buy_amount < 0:
             logger.warning(
                 'Filtering out proposed trade (bid or ask amount < 0): '
                 f'{proposed}.'
@@ -102,8 +102,8 @@ class MarketAdapter(metaclass=ABCMeta):
 
         # Check that the proposed trade exceeds minimum fiat trade amount.
         if (
-            (proposed.from_coin == proposed.fiat and proposed.bid_amount < 0.0001) or
-            (proposed.to_coin == proposed.fiat and proposed.ask_amount < 0.0001)
+            (proposed.sell_coin == proposed.fiat and proposed.sell_amount < 0.0001) or
+            (proposed.buy_coin == proposed.fiat and proposed.buy_amount < 0.0001)
         ):
             logger.warning(
                 'Filtering out proposed trade (transaction too small): '
