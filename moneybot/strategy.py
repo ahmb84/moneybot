@@ -98,7 +98,12 @@ class ProposedTrade:
         # So, we keep around a self.market_price to match
         # self.price is always in the quote currency.
         self.market_price = base_price
-        if self.buy_coin == self.fiat:
+        # Now, we find out what price matters for our trade.
+        # The base price is always in the base currency,
+        # So we will need to figure out if we are trading from,
+        # or to, this base currency.
+        base_currency = self.market_name.split('_')[0]
+        if self.buy_coin == base_currency:
             self.price = 1 / base_price
         else:
             self.price = base_price
