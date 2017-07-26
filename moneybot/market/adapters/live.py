@@ -128,8 +128,9 @@ class LiveMarketAdapter(MarketAdapter):
         proposed_trade: ProposedTrade,
         market_state: MarketState,
     ) -> Dict:
-        # if we're trading FROM fiat, that's a "sell"
-        if proposed_trade.sell_coin == market_state.fiat:
+        base_currency = proposed_trade.market_name.split('_')[0]
+        # if we're trading FROM a base currency, that's a "sell"
+        if proposed_trade.sell_coin == base_currency:
             return self._purchase_helper(
                 'buy',
                 proposed_trade.market_name,
@@ -142,8 +143,8 @@ class LiveMarketAdapter(MarketAdapter):
                 self._adjust_up,
             )
 
-        # if we're trading TO fiat, that's a "sell"
-        elif proposed_trade.buy_coin == market_state.fiat:
+        # if we're trading TO the base currency, that's a "sell"
+        elif proposed_trade.buy_coin == base_currency:
             return self._purchase_helper(
                 'sell',
                 proposed_trade.market_name,
