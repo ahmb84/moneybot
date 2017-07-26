@@ -4,6 +4,7 @@ from logging import getLogger
 from time import sleep
 from time import time
 from typing import Generator
+from copy import deepcopy
 
 import pandas as pd
 
@@ -41,31 +42,29 @@ class Fund:
         self.market_history = adapter.market_history
 
     def step(self, time: datetime) -> float:
-        market_state = self.market_adapter.get_market_state(time)
+        # We make a copy of our MarketAdapter's market_state
+        # This way, we can pass the copy to Strategy.propose_trades()
+        # without having to worry about the strategy mutating the market_state
+        # to pull some sort of shennannigans (even accidentally).
+        # This way, the Strategy cannot communicate at all with the MarketAdapter
+        # except through ProposedTrades.
+        copied_market_state = deepcopy(self.market_adapter.get_market_state(time))
+        # print('market_state.balances', market_state.balances)
         # Now, propose trades. If you're writing a strategy, you will override this method.
-        proposed_trades = self.strategy.propose_trades(market_state, self.market_history)
+        proposed_trades = self.strategy.propose_trades(copied_market_state, self.market_history)
         # If the strategy proposed any trades, we execute them.
         if proposed_trades:
-            # The user's propose_trades() method could be returning anything,
-            # we don't trust it necessarily. So, we have our MarketAdapter
-            # assure that all the trades are legal, by the market's rules.
-            # `filter_legal()` will throw informative warnings if any trades
-            # get filtered out!
-            # TODO Can the Strategy get access to this sanity checker?
-            assumed_legal_trades = self.market_adapter.filter_legal(
-                proposed_trades,
-                market_state,
-            )
             # Finally, the MarketAdapter will execute our trades.
             # If we're backtesting, these trades won't really happen.
             # If we're trading for real, we will attempt to execute the proposed trades
             # at the best price we can.
             # In either case, this method is side-effect-y;
             # it sets MarketAdapter.balances, after all trades have been executed.
-            self.market_adapter.execute(assumed_legal_trades, market_state)
+            self.market_adapter.filter_and_execute(proposed_trades)
+        # print('market_adapter.balances after propose_trades()', # self.market_adapter.balances)
         # Finally, we get the USD value of our whole fund,
         # now that all trades (if there were any) have been executed.
-        usd_value = market_state.estimate_total_value_usd()
+        usd_value = self.market_adapter.market_state.estimate_total_value_usd()
         return usd_value
 
     def run_live(self):

@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
-from datetime import datetime
 from typing import Dict
 from typing import List
 from typing import Set
 from typing import Tuple
+
+from datetime import datetime
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 class MarketState:
@@ -92,8 +96,14 @@ class MarketState:
                     fiat_price = self.price(relevant_market, **kwargs)
                     fiat_values[coin] = fiat_price * amount_held
             except KeyError:
-                # Remove the coin -- it has been delisted.
-                remove.append(coin)
+                try:
+                    relevant_market = f'{coin}_{self.fiat}'
+                    fiat_price = self.price(relevant_market, **kwargs)
+                    fiat_values[coin] = amount_held / fiat_price
+                except KeyError:
+                    logger.warn(f'Cannot find a price for {relevant_market}. Has it been delisted? Removing from balances.')
+                    fiat_values[coin] = 0
+                    remove.append(coin)
         for removal in remove:
             self.balances.pop(removal)
         return fiat_values

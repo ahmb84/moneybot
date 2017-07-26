@@ -4,8 +4,6 @@ from functools import partial
 from logging import getLogger
 from typing import Callable
 from typing import Dict
-from typing import Iterator
-
 from moneybot.clients import Poloniex
 from moneybot.market.adapters import MarketAdapter
 from moneybot.market.history import MarketHistory
@@ -39,12 +37,10 @@ class LiveMarketAdapter(MarketAdapter):
 
     def execute(
         self,
-        proposed_trades: Iterator[ProposedTrade],
-        market_state: MarketState,
-    ):
-        for trade in proposed_trades:
-            self._place_order(trade, market_state)
-        self.balances = self.get_balances()
+        proposed_trade: ProposedTrade,
+    ) -> Dict[str, float]:
+        self._place_order(proposed_trade, self.market_state)
+        return self.get_balances()
 
     '''
     Private methods

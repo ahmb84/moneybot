@@ -116,11 +116,10 @@ class ProposedTrade:
         When `self.estimate_price_with` is passed a `chart` object,
         it will pass this down to `estimate_price()`.
         '''
-        if amount > market_state.balance(self.from_coin):
-            self.bid_amount = market_state.balance(self.from_coin)
-        else:
-            self.bid_amount = amount
-
+        # if amount > market_state.balance(self.from_coin):
+        #     self.bid_amount = market_state.balance(self.from_coin)
+        # else:
+        self.bid_amount = amount
         self.estimate_price(market_state)
         self.ask_amount = self._purchase_amount(amount, self.price)
 
