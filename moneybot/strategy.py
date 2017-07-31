@@ -58,6 +58,12 @@ class ProposedTrade:
             self.price, self.sell_coin, self.buy_coin,
             self.market_name)
 
+    def market_base_currency(self):
+        return self.market_name.split('_')[0]
+
+    def market_quote_currency(self):
+        return self.market_name.split('_')[1]
+
     '''
     Private methods
     '''
@@ -102,8 +108,7 @@ class ProposedTrade:
         # The base price is always in the base currency,
         # So we will need to figure out if we are trading from,
         # or to, this base currency.
-        base_currency = self.market_name.split('_')[0]
-        if self.buy_coin == base_currency:
+        if self.buy_coin == self.market_base_currency():
             self.price = 1 / base_price
         else:
             self.price = base_price

@@ -128,9 +128,10 @@ class LiveMarketAdapter(MarketAdapter):
         proposed_trade: ProposedTrade,
         market_state: MarketState,
     ) -> Dict:
-        base_currency = proposed_trade.market_name.split('_')[0]
-        # if we're trading FROM a base currency, that's a "sell"
-        if proposed_trade.sell_coin == base_currency:
+
+        # in the language of poloniex,
+        # buying a market's quote currency is a "buy"
+        if proposed_trade.buy_coin == proposed_trade.market_quote_currency():
             return self._purchase_helper(
                 'buy',
                 proposed_trade.market_name,
@@ -143,8 +144,9 @@ class LiveMarketAdapter(MarketAdapter):
                 self._adjust_up,
             )
 
-        # if we're trading TO the base currency, that's a "sell"
-        elif proposed_trade.buy_coin == base_currency:
+        # in the language of poloniex,
+        # buying a market's base currency is a "sell"
+        elif proposed_trade.buy_coin == proposed_trade.market_base_currency():
             return self._purchase_helper(
                 'sell',
                 proposed_trade.market_name,
