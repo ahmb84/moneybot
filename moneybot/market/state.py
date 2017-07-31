@@ -136,11 +136,11 @@ class MarketState:
         '''
         def simulate(proposed, new_balances):
             # TODO This makes sense as logic, but new_balances is confusing
-            new_balances[proposed.from_coin] -= proposed.bid_amount
-            if proposed.to_coin not in new_balances:
-                new_balances[proposed.to_coin] = 0
-            est_trade_amt = proposed.bid_amount / proposed.price
-            new_balances[proposed.to_coin] += est_trade_amt
+            new_balances[proposed.sell_coin] -= proposed.sell_amount
+            if proposed.buy_coin not in new_balances:
+                new_balances[proposed.buy_coin] = 0
+            est_trade_amt = proposed.sell_amount / proposed.price
+            new_balances[proposed.buy_coin] += est_trade_amt
             return new_balances
         '''
         This method sanity-checks all proposed purchases,
