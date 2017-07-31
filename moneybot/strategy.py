@@ -51,18 +51,15 @@ class ProposedTrade:
         elif buy_coin == fiat:
             self.market_name = self._get_market_name(fiat, sell_coin)
 
+        # Set the "base" and "quote" currency (strings)
+        self.market_base_currency, self.market_quote_currency = self.market_name.split('_')
+
     def __str__(self) -> str:
         return '{!s} {!s} for {!s} {!s} (price of {!s} {!s}/{!s} on market {!s})'.format(
             self.sell_amount, self.sell_coin,
             self.buy_amount, self.buy_coin,
             self.price, self.sell_coin, self.buy_coin,
             self.market_name)
-
-    def market_base_currency(self):
-        return self.market_name.split('_')[0]
-
-    def market_quote_currency(self):
-        return self.market_name.split('_')[1]
 
     '''
     Private methods
@@ -108,7 +105,7 @@ class ProposedTrade:
         # The base price is always in the base currency,
         # So we will need to figure out if we are trading from,
         # or to, this base currency.
-        if self.buy_coin == self.market_base_currency():
+        if self.buy_coin == self.market_base_currency:
             self.price = 1 / base_price
         else:
             self.price = base_price
