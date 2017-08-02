@@ -9,12 +9,28 @@ from pandas import Series
 from moneybot.strategy import Strategy
 
 
+class BuyHoldStrategy(Strategy):
+
+    def propose_trades(self, market_state, market_history):
+        # If we only have BTC,
+        if market_state.only_holding(self.fiat):
+            # buy some stuff
+            return self.initial_proposed_trades(market_state)
+
+        # if we hold things other than BTC, hold.
+        return
+
+
 class BuffedCoinStrategy(Strategy):
 
     def median(self, est_values: Dict[str, float]) -> float:
         return median(list(est_values.values()))
 
-    def is_buffed(self, coin: str, coin_values: Dict[str, float]) -> bool:
+    def is_buffed(
+            self,
+            coin: str,
+            coin_values: Dict[str, float]
+    ) -> bool:
         # HACK HACK HACK HACK HACK
         # HACK magic number HACK
         # HACK HACK HACK HACK HACK
@@ -45,18 +61,6 @@ class BuffedCoinStrategy(Strategy):
             # sell them so as to reallocate their value eqaully
             return self.rebalancing_proposed_trades(buffed_coins, market_state)
 
-        return
-
-
-class BuyHoldStrategy(Strategy):
-
-    def propose_trades(self, market_state, market_history):
-        # If we only have BTC,
-        if market_state.only_holding(self.fiat):
-            # buy some stuff
-            return self.initial_proposed_trades(market_state)
-
-        # if we hold things other than BTC, hold.
         return
 
 

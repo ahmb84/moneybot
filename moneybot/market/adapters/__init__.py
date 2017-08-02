@@ -42,7 +42,12 @@ class MarketAdapter(metaclass=ABCMeta):
         self,
         proposed_trades: List[ProposedTrade],
     ) -> None:
+        # First, we must turn proposed trades
+        # into ones we can actually execute
+        # Specifically, we must assure that we can actually
+        # trade between the two currencies proposed.
         for trade in proposed_trades:
+            trade = self.market_state.set_sell_amount(trade)
             legal_trade = self.legalize(trade)
             if legal_trade:
                 balances = self.execute(trade)
@@ -50,7 +55,7 @@ class MarketAdapter(metaclass=ABCMeta):
 
     def get_market_state(self, time: datetime) -> MarketState:
         # Get the latest chart data from the market
-        charts = self.market_history.latest(time)
+        charts = self.market_history.latest((time))
         balances = self.get_balances()
         self.market_state = MarketState(charts, balances, time, self.fiat)
         return self.market_state
@@ -77,13 +82,14 @@ class MarketAdapter(metaclass=ABCMeta):
             )
             return None
 
-        if proposed.sell_amount > held_amount:
-            logger.warning(
-                f"Holding {held_amount} {proposed.sell_coin}, but trying to sell more than is held, {proposed.sell_amount}."
-                "Simply selling maximum amount."
-            )
-            proposed.set_sell_amount(held_amount, self.market_state)
-            return proposed
+        # TODO reinstate
+        # if proposed.sell_amount > held_amount:
+        #     logger.warning(
+        #         f"Holding {held_amount} {proposed.sell_coin}, but trying to sell more than is held, {proposed.sell_amount}."
+        #         "Simply selling maximum amount."
+        #     )
+        #     proposed.set_sell_amount(held_amount, self.market_state)
+        #     return proposed
 
         # Check that proposed bid has a price:
         if not proposed.price:
