@@ -55,7 +55,7 @@ class MarketAdapter(metaclass=ABCMeta):
 
     def get_market_state(self, time: datetime) -> MarketState:
         # Get the latest chart data from the market
-        charts = self.market_history.latest((time))
+        charts = self.market_history.latest(time)
         balances = self.get_balances()
         self.market_state = MarketState(charts, balances, time, self.fiat)
         return self.market_state
@@ -82,14 +82,13 @@ class MarketAdapter(metaclass=ABCMeta):
             )
             return None
 
-        # TODO reinstate
-        # if proposed.sell_amount > held_amount:
-        #     logger.warning(
-        #         f"Holding {held_amount} {proposed.sell_coin}, but trying to sell more than is held, {proposed.sell_amount}."
-        #         "Simply selling maximum amount."
-        #     )
-        #     proposed.set_sell_amount(held_amount, self.market_state)
-        #     return proposed
+        if proposed.sell_amount > held_amount:
+            logger.warning(
+                f"Holding {held_amount} {proposed.sell_coin}, but trying to sell more than is held, {proposed.sell_amount}."
+                "Simply selling maximum amount."
+            )
+            proposed.sell_amount = held_amount
+            return proposed
 
         # Check that proposed bid has a price:
         if not proposed.price:

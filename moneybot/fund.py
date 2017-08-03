@@ -51,11 +51,11 @@ class Fund:
         market_state = self.market_adapter.get_market_state(time)
         copied_market_state = deepcopy(market_state)
         # print('market_state.balances', market_state.balances)
-        # Now, propose an allocation of assets. If you're writing a strategy, you will implement this method.
+        # Now, propose trades. If you're writing a strategy, you will implement this method.
         proposed_trades = self.strategy.propose_trades(copied_market_state, self.market_history)
-        # If the strategy proposed any allocation,
+        # If the strategy proposed any trades,
         if proposed_trades:
-            # Finally, the MarketAdapter will execute our trades.
+            # the MarketAdapter will execute them.
             # If we're backtesting, these trades won't really happen.
             # If we're trading for real, we will attempt to execute the proposed trades
             # at the best price we can.
