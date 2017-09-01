@@ -135,6 +135,7 @@ class MarketState:
         (after all, our proposed price will not always be achievable)
         '''
         def simulate(proposed, new_balances):
+            proposed = self.set_sell_amount(proposed)
             # TODO This makes sense as logic, but new_balances is confusing
             new_balances[proposed.sell_coin] -= proposed.sell_amount
             if proposed.buy_coin not in new_balances:
@@ -148,9 +149,62 @@ class MarketState:
         '''
         # TODO I hate copying this
         new_balances = self.balances.copy()
-        for proposed in proposed_trades:
+        new_proposed = proposed_trades.copy()
+        for proposed in new_proposed:
             # Actually simulate purchase of the proposed trade
             # TODO I hate mutating stuff out of scope, so much
             new_balances = simulate(proposed, new_balances)
 
         return new_balances
+
+    def estimate_price(self, trade):
+        '''
+        Sets the approximate price of the quote value, given some chart data.
+        '''
+        base_price = self.price(trade.market_name)
+        # The price (when buying/selling)
+        # should match the self.market_name.
+        # So, we keep around a self.market_price to match
+        # self.price is always in the quote currency.
+        trade.market_price = base_price
+        # Now, we find out what price matters for our trade.
+        # The base price is always in the base currency,
+        # So we will need to figure out if we are trading from,
+        # or to, this base currency.
+        if trade.buy_coin == trade.market_base_currency:
+            trade.price = 1 / base_price
+        else:
+            trade.price = base_price
+        return trade
+
+    def set_sell_amount(
+        self,
+        trade,
+    ):
+        '''
+        Sets `self.sell_amount`, `self.buy_amount`, `self.price`
+        such that the proposed trade would leave us with a
+        holding of `self.fiat_to_trade`.`
+        '''
+        trade = self.estimate_price(trade)
+        if trade.sell_coin == trade.fiat:
+            trade.sell_amount = trade.fiat_value_to_trade
+        # If we are trying to buy fiat,
+        elif trade.buy_coin == trade.fiat:
+            # first we'll find the value of the coin we currently hold.
+            current_value = self.balance(trade.sell_coin) * trade.price
+            # To find how much coin we want to sell,
+            # we'll subtract our holding's value from the ideal value
+            # to produce the value of coin we must sell.
+            value_to_sell = current_value - trade.fiat_value_to_trade
+            # Now we find the amount of coin equal to this value.
+            trade.sell_amount = value_to_sell / trade.price
+            if trade.sell_amount < 0:
+                trade.sell_amount = 0
+        else:
+            logger.warning('Proposing trade neither to nor from fiat', trade)
+            raise
+        # Figure out how much we will actually buy, account for fees
+        inv_amt = trade.sell_amount - (trade.sell_amount * trade.fee)
+        trade.buy_amount = inv_amt / trade.price
+        return trade
