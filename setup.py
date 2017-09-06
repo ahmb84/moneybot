@@ -15,7 +15,7 @@ setup(
         'numpy',
         'pandas',
         'psycopg2',
-        'pyloniex>=0.0.3',
+        'pyloniex>=0.0.4',
         'PyStaticConfiguration[yaml]',
         'requests',
     ],
