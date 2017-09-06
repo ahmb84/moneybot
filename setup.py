@@ -6,7 +6,7 @@ from setuptools import setup
 
 setup(
     name='moneybot',
-    version='0.0.2',
+    version='0.0.3',
 
     packages=find_packages(),
 
@@ -15,7 +15,7 @@ setup(
         'numpy',
         'pandas',
         'psycopg2',
-        'pyloniex>=0.0.2',
+        'pyloniex>=0.0.3',
         'PyStaticConfiguration[yaml]',
         'requests',
     ],

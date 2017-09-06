@@ -3,7 +3,7 @@ funcy==1.8
 numpy==1.13.0
 pandas==0.20.2
 psycopg2==2.7.1
-pyloniex==0.0.2
+pyloniex==0.0.3
 PyStaticConfiguration==0.10.3
 PyYAML==3.12
 requests==2.18.4

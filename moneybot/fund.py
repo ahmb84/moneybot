@@ -7,6 +7,7 @@ from typing import Generator
 from copy import deepcopy
 
 import pandas as pd
+from pyloniex.errors import PoloniexServerError
 
 from moneybot.market.adapters import MarketAdapter
 from moneybot.strategy import Strategy
@@ -70,24 +71,26 @@ class Fund:
 
     def run_live(self):
         start_time = time()
-        PERIOD = self.strategy.trade_interval
+        period = self.strategy.trade_interval
         while True:
-            # Get time loop starts, so
-            # we can account for the time
-            # that the step took to run
+            # Note time when loop starts, so we can account for how long it
+            # takes to run
             cur_time = datetime.now()
-            # Before anything,
-            # scrape poloniex
-            # to make sure we have freshest data
-            self.market_history.scrape_latest()
-            # Now the fund can step()
-            logger.info(f'Fund::step({cur_time})')
-            usd_val = self.step(cur_time)
-            # After its step, we have got the USD value.
-            logger.info(f'Est. USD value: {usd_val}')
-            # Wait until our next time to run,
-            # Accounting for the time that this step took to run
-            sleep(PERIOD - ((time() - start_time) % PERIOD))
+            try:
+                # Before anything, get freshest data from Poloniex
+                self.market_history.scrape_latest()
+                # Now the fund can step()
+                logger.info(f'Fund::step({cur_time})')
+                usd_val = self.step(cur_time)
+                # After its step, we have got the USD value.
+                logger.info(f'Est. USD value: {usd_val}')
+            except PoloniexServerError:
+                logger.exception(
+                    'Received server error from Poloniex; sleeping until next step'
+                )
+            # Wait until our next time to run, accounting for the time that
+            # this step took to run
+            sleep(period - ((time() - start_time) % period))
 
     def begin_backtest(
         self,
