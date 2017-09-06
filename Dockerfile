@@ -1,7 +1,7 @@
-FROM        python:3.6-alpine
+FROM        python:3.6
 
 # Create a user to run the application
-RUN         adduser -D burry
+RUN         useradd -m burry
 WORKDIR     /home/burry
 
 # Add application files
