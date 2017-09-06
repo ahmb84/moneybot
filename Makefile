@@ -1,4 +1,4 @@
-.PHONY: clean tag image live
+.PHONY: clean tag
 
 version := $(shell python3 setup.py --version)
 
@@ -10,13 +10,3 @@ clean:
 
 tag:
 	git tag $(version)
-
-image:
-	docker build -t moneybot:latest -t moneybot:$(version) .
-
-live:
-	docker run -d \
-	--name moneybot \
-	--net moneybot \
-	moneybot:latest \
-	-s buffed-coin -l DEBUG
