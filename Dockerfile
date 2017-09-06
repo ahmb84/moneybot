@@ -1,4 +1,4 @@
-FROM        python:3.6
+FROM        python:3.6-alpine
 
 # Create a user to run the application
 RUN         useradd -m burry
