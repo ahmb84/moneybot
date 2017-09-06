@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import time
 import requests
 from datetime import datetime
@@ -5,16 +6,16 @@ from logging import getLogger
 from typing import Optional
 from typing import Dict
 from typing import Iterable
+
 from funcy import compose
 from funcy import partial
-
 from pandas import DataFrame
 from pandas import to_datetime
 from pandas import Series
+from pyloniex import PoloniexPublicAPI
 
 from moneybot.clients import Postgres
 from moneybot.clients import Poloniex
-from poloniex import Poloniex as _Poloniex
 
 
 YEAR_IN_SECS = 60 * 60 * 24 * 365
@@ -69,7 +70,7 @@ def marshall(hist_df):
 
 
 def historical_prices_of(
-        polo: _Poloniex,
+        polo: PoloniexPublicAPI,
         btc_price_history: Series,
         pair: str,
         period: int = 900,
@@ -92,7 +93,12 @@ def historical_prices_of(
     now = time.time()
     start = start or now - YEAR_IN_SECS
     end = end or now
-    ex_trades = polo.returnChartData(pair, period, start, end)
+    ex_trades = polo.return_chart_data(
+        currency_pair=pair,
+        period=period,
+        start=start,
+        end=end,
+    )
     # Data marshalling
     ts_df = DataFrame(ex_trades, dtype=float)
     ts_df['time'] = [datetime.fromtimestamp(t) for t in ts_df['date']]
@@ -150,11 +156,11 @@ def scrape_since_last_reading():
     logger.debug('Scraped USD_BTC')
 
     # now, a poloniex client
-    polo = Poloniex.get_client()
+    polo = Poloniex.get_public()
     # and a method for grabbing historical prices
     grab_historical_prices = partial(historical_prices_of, polo, btc_price_hist)
     # for each market,
-    for market in polo.returnTicker():
+    for market in polo.return_ticker():
         # fetch all the chart data since last fetch
         generator = grab_historical_prices(
             market,

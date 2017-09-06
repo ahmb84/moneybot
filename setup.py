@@ -6,16 +6,16 @@ from setuptools import setup
 
 setup(
     name='moneybot',
-    version='0.0.1',
+    version='0.0.2',
 
     packages=find_packages(),
 
     install_requires=[
         'funcy',
-        'influxdb',
         'numpy',
         'pandas',
-        # 'poloniex',
+        'psycopg2',
+        'pyloniex',
         'PyStaticConfiguration[yaml]',
         'requests',
     ],

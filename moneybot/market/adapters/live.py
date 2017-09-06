@@ -4,6 +4,9 @@ from functools import partial
 from logging import getLogger
 from typing import Callable
 from typing import Dict
+
+from pyloniex.constants import OrderType
+
 from moneybot.clients import Poloniex
 from moneybot.market.adapters import MarketAdapter
 from moneybot.market.history import MarketHistory
@@ -21,13 +24,13 @@ class LiveMarketAdapter(MarketAdapter):
         market_history: MarketHistory,
         fiat: str,
     ) -> None:
-        self.polo = Poloniex.get_client()
+        self.polo = Poloniex.get_private()
         self.market_history = market_history
         self.balances = self.get_balances()
         self.fiat = fiat
 
     def get_balances(self) -> Dict[str, float]:
-        bals = self.polo.returnCompleteBalances()
+        bals = self.polo.return_complete_balances()
         all_balances = {}
         for coin, bal, in bals.items():
             avail = float(bal['available'])
@@ -99,11 +102,11 @@ class LiveMarketAdapter(MarketAdapter):
                                    direction, market, price, amount)
         try:
             res = purchase_fn(
-                market,
-                price,
-                amount,
+                currency_pair=market,
+                rate=price,
+                amount=amount,
                 # Cancel order if not fulfilled in entirity at this price
-                orderType='fillOrKill',
+                order_type=OrderType.fill_or_kill,
             )
             measurement = make_measurement('filled')
             logger.debug(str(measurement))

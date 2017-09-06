@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import psycopg2
-from poloniex import Poloniex as _Poloniex
+from pyloniex import PoloniexPrivateAPI
+from pyloniex import PoloniexPublicAPI
 
 from moneybot import config
 
@@ -29,13 +30,20 @@ class Postgres:
 
 class Poloniex:
 
-    _client = None
+    _private = None
 
     @classmethod
-    def get_client(cls):
-        if cls._client is None:
-            cls._client = _Poloniex(
-                config.read_string('poloniex.key', default=None),
-                config.read_string('poloniex.secret', default=None),
+    def get_private(cls) -> PoloniexPrivateAPI:
+        if cls._private is None:
+            cls._private = PoloniexPrivateAPI(
+                key=config.read_string('poloniex.key'),
+                secret=config.read_string('poloniex.secret'),
             )
-        return cls._client
+
+    _public = None
+
+    @classmethod
+    def get_public(cls) -> PoloniexPublicAPI:
+        if cls._public is None:
+            cls._public = PoloniexPublicAPI()
+        return cls._public

@@ -1,9 +1,9 @@
 -e .
 funcy==1.8
 numpy==1.13.0
-psycopg2==2.7.1
 pandas==0.20.2
-git+git://github.com/s4w3d0ff/python-poloniex.git@1e0cdcb757dee83cd28f85461e329d866a93a4a5#egg=poloniex
+psycopg2==2.7.1
+pyloniex==0.0.1
 PyStaticConfiguration==0.10.3
-requests==2.18.1
-PyYAML
+PyYAML==3.12
+requests==2.18.4
