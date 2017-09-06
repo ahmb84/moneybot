@@ -39,6 +39,7 @@ class Poloniex:
                 key=config.read_string('poloniex.key'),
                 secret=config.read_string('poloniex.secret'),
             )
+        return cls._private
 
     _public = None
 
