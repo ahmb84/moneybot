@@ -164,7 +164,7 @@ class Strategy(metaclass=ABCMeta):
         """
         total_value = market_state.estimate_total_value()
         target_coins = self._possible_investments(market_state)
-        ideal_fiat_value_per_coin = total_value / len(target_coins) + 1.0  # Including fiat
+        ideal_fiat_value_per_coin = total_value / (len(target_coins) + 1.0)  # Including fiat
 
         est_values = market_state.estimate_values()
 

@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import logging
+
 import pytest
 import staticconf
 import yaml
@@ -19,3 +21,4 @@ def config():
         yaml.load(TEST_CONFIG),
         namespace=moneybot.CONFIG_NS,
     )
+    logging.basicConfig(level=logging.INFO)
