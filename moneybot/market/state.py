@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
-from typing import Dict
-from typing import List
-from typing import Set
-from typing import Tuple
-
 from datetime import datetime
 from logging import getLogger
+from typing import Dict
+from typing import FrozenSet
+from typing import Tuple
+
 
 logger = getLogger(__name__)
 
@@ -31,23 +30,24 @@ class MarketState:
     Private methods
     '''
 
-    def _held_coins(self) -> List[str]:
-        return [
-            k for k
-            in self.balances.keys()
-            if self.balances[k] > 0
-        ]
+    def _held_coins(self) -> FrozenSet[str]:
+        return frozenset(
+            coin for (coin, balance)
+            in self.balances.items()
+            if balance > 0
+        )
 
     def _coin_names(self, market_name: str) -> Tuple[str, str]:
-        coins = market_name.split('_')
-        return coins[0], coins[1]
+        base, quote = market_name.split('_', 1)
+        return (base, quote)
 
-    def _available_markets(self) -> Set[str]:
-        return {
-            k for k
-            in self.chart_data.keys()
-            if k.startswith(self.fiat)
-        }
+    def _available_markets(self) -> FrozenSet[str]:
+        return frozenset(
+            filter(
+                lambda market: market.startswith(self.fiat),
+                self.chart_data.keys(),
+            )
+        )
 
     '''
     Public methods
@@ -59,8 +59,7 @@ class MarketState:
         '''
         return self.balances[coin]
 
-    # TODO types
-    def price(self, market, key='weighted_average'):
+    def price(self, market: str, key='weighted_average') -> float:
         '''
         Returns the price of a market, in terms of the base asset.
         '''
@@ -70,15 +69,14 @@ class MarketState:
         '''
         Returns true if the only thing we are holding is `coin`
         '''
-        return self._held_coins() == [coin]
+        return self._held_coins() == {coin}
 
-    def available_coins(self) -> Set[str]:
-        markets = self._available_markets()
-        return {self._coin_names(market)[1] for market in markets} | {self.fiat}
+    def available_coins(self) -> FrozenSet[str]:
+        markets = self._available_markets()  # All of these start with fiat
+        return frozenset(self._coin_names(m)[1] for m in markets) | {self.fiat}
 
-    def held_coins_with_chart_data(self) -> Set[str]:
-        avail_coins = self.available_coins()
-        return set(self._held_coins()).intersection(avail_coins)
+    def held_coins_with_chart_data(self) -> FrozenSet[str]:
+        return self._held_coins() & self.available_coins()
 
     def estimate_values(self, **kwargs) -> Dict[str, float]:
         '''

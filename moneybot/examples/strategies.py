@@ -23,22 +23,20 @@ class BuyHoldStrategy(Strategy):
 
 class BuffedCoinStrategy(Strategy):
 
+    # HACK HACK HACK HACK HACK
+    magic_number = 1.5  # HACK
+    # HACK HACK HACK HACK HACK
+
     def median(self, est_values: Dict[str, float]) -> float:
         return median(list(est_values.values()))
 
     def is_buffed(
-            self,
-            coin: str,
-            coin_values: Dict[str, float]
+        self,
+        coin: str,
+        coin_values: Dict[str, float]
     ) -> bool:
-        # HACK HACK HACK HACK HACK
-        # HACK magic number HACK
-        # HACK HACK HACK HACK HACK
-        MULTIPLIER = 1.5
         median_value = self.median(coin_values)
-        if coin_values[coin] > (median_value * MULTIPLIER):
-            return True
-        return False
+        return coin_values[coin] > (median_value * type(self).magic_number)
 
     def find_buffed_coins(self, market_state):
         est_values = market_state.estimate_values()

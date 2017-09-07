@@ -90,7 +90,11 @@ class Fund:
                 )
             # Wait until our next time to run, accounting for the time that
             # this step took to run
-            sleep(period - ((time() - start_time) % period))
+            step_time = time() - start_time
+            logger.debug(f'Trading step took {step_time} seconds')
+            sleep_time = period - (step_time % period)
+            logger.debug(f'Sleeping {sleep_time} seconds until next step')
+            sleep(sleep_time)
 
     def begin_backtest(
         self,

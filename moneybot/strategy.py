@@ -2,9 +2,10 @@
 from abc import ABCMeta
 from abc import abstractmethod
 from logging import getLogger
+from typing import FrozenSet
 from typing import Generator
+from typing import Iterable
 from typing import List
-from typing import Set
 
 from moneybot.market.history import MarketHistory
 from moneybot.market.state import MarketState
@@ -116,7 +117,7 @@ class Strategy(metaclass=ABCMeta):
     Trade proposal utilities
     '''
 
-    def _possible_investments(self, market_state: MarketState) -> Set[str]:
+    def _possible_investments(self, market_state: MarketState) -> FrozenSet[str]:
         '''
         Returns a set of all coins that the strategy might invest in,
         not including the fiat.
@@ -129,7 +130,7 @@ class Strategy(metaclass=ABCMeta):
 
     def _propose_trades_to_fiat(
         self,
-        coins: List[str],
+        coins: Iterable[str],
         fiat_value_per_coin: float,
         market_state: MarketState,
     ) -> Generator[ProposedTrade, None, None]:
@@ -144,7 +145,7 @@ class Strategy(metaclass=ABCMeta):
 
     def _propose_trades_from_fiat(
         self,
-        coins: Set[str],
+        coins: Iterable[str],
         fiat_investment_per_coin: float,
         market_state: MarketState,
     ) -> Generator[ProposedTrade, None, None]:
@@ -156,18 +157,29 @@ class Strategy(metaclass=ABCMeta):
         self,
         market_state: MarketState,
     ) -> Generator[ProposedTrade, None, None]:
-        '''
-        "Initial" purchases are from fiat.
-        (We assume funds start with only a fiat balance.)
-        The resulting proposed trades should result in an equal allocation (of value, in fiat)
-        across all "reachable" markets (markets in which the base currency is fiat).
-        '''
-        possible_investments = self._possible_investments(market_state)
-        fiat_investment_per_coin = market_state.balances[self.fiat] / (len(possible_investments) + 1.0)
-        trades = self._propose_trades_from_fiat(possible_investments,
-                                                fiat_investment_per_coin,
-                                                market_state)
-        return trades
+        """Initial trades should get us as close as possible to an equal
+        distribution of value (w/r/t fiat) across all "reachable" markets
+        (those in which the base currency is our "fiat").
+        """
+        total_value = market_state.estimate_total_value()
+        target_coins = self._possible_investments(market_state)
+        ideal_fiat_value_per_coin = total_value / len(target_coins) + 1.0  # Including fiat
+
+        est_values = market_state.estimate_values()
+
+        # 1) Propose trades that would have us buy fiat
+        for coin in target_coins:
+            value = est_values.get(coin, 0)
+            delta = value - ideal_fiat_value_per_coin
+            if delta > 0:
+                yield ProposedTrade(coin, self.fiat, delta)
+
+        # 2) Propose trades that would have us sell fiat
+        for coin in target_coins:
+            value = est_values.get(coin, 0)
+            delta = value - ideal_fiat_value_per_coin
+            if delta < 0:
+                yield ProposedTrade(self.fiat, coin, abs(delta))
 
     # TODO Trade directly from X to Y!
     def rebalancing_proposed_trades(
