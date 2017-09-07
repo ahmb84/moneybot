@@ -15,6 +15,7 @@ class BuyHoldStrategy(Strategy):
         # If we only have BTC,
         if market_state.only_holding(self.fiat):
             # buy some stuff
+            self.has_proposed_initial_trades = True
             return self.initial_proposed_trades(market_state)
 
         # if we hold things other than BTC, hold.
@@ -47,12 +48,12 @@ class BuffedCoinStrategy(Strategy):
         return buffed_coins
 
     def propose_trades(self, market_state, market_history):
-        # First of all, if we only hold fiat,
-        if market_state.only_holding(self.fiat):
+        # If we're just starting up, make initial trades
+        if self.has_proposed_initial_trades is False:
+            self.has_proposed_initial_trades = True
             return self.initial_proposed_trades(market_state)
 
-        # If we do have stuff other than fiat,
-        # see if any of those holdings are buffed
+        # Otherwise, see if any of our holdings are buffed
         buffed_coins = self.find_buffed_coins(market_state)
         # if any of them are,
         if len(buffed_coins):
@@ -128,6 +129,7 @@ class PeakRiderStrategy(BuffedCoinStrategy):
         # First of all, if we only hold fiat,
         if market_state.only_holding(self.fiat):
             # Make initial trades
+            self.has_proposed_initial_trades = True
             return self.initial_proposed_trades(market_state)
         # If we do have stuff other than fiat,
         # see if any of those holdings are buffed

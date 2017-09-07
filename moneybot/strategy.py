@@ -104,6 +104,7 @@ class Strategy(metaclass=ABCMeta):
     def __init__(self, fiat: str, trade_interval: int) -> None:
         self.fiat = fiat
         self.trade_interval = trade_interval  # Time between trades, in seconds
+        self.has_proposed_initial_trades = False
 
     @abstractmethod
     def propose_trades(
