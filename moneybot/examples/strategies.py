@@ -15,8 +15,7 @@ class BuyHoldStrategy(Strategy):
         # If we only have BTC,
         if market_state.only_holding(self.fiat):
             # buy some stuff
-            self.has_proposed_initial_trades = True
-            return self.initial_proposed_trades(market_state)
+            return self.propose_trades_for_total_rebalancing(market_state)
 
         # if we hold things other than BTC, hold.
         return
@@ -49,16 +48,15 @@ class BuffedCoinStrategy(Strategy):
 
     def propose_trades(self, market_state, market_history):
         # If we're just starting up, make initial trades
-        if self.has_proposed_initial_trades is False:
-            self.has_proposed_initial_trades = True
-            return self.initial_proposed_trades(market_state)
+        if market_state.only_holding(self.fiat):
+            return self.propose_trades_for_total_rebalancing(market_state)
 
         # Otherwise, see if any of our holdings are buffed
         buffed_coins = self.find_buffed_coins(market_state)
         # if any of them are,
         if len(buffed_coins):
             # sell them so as to reallocate their value eqaully
-            return self.rebalancing_proposed_trades(buffed_coins, market_state)
+            return self.propose_trades_for_partial_rebalancing(market_state, buffed_coins)
 
         return
 
@@ -129,8 +127,8 @@ class PeakRiderStrategy(BuffedCoinStrategy):
         # First of all, if we only hold fiat,
         if market_state.only_holding(self.fiat):
             # Make initial trades
-            self.has_proposed_initial_trades = True
-            return self.initial_proposed_trades(market_state)
+            return self.propose_trades_for_total_rebalancing(market_state)
+
         # If we do have stuff other than fiat,
         # see if any of those holdings are buffed
         buffed_coins = self.find_buffed_coins(market_state)
@@ -143,9 +141,9 @@ class PeakRiderStrategy(BuffedCoinStrategy):
         # if any of them are,
         if len(buffed_and_crashing):
             # sell them so as to reallocate their value eqaully
-            proposed = self.rebalancing_proposed_trades(
-                buffed_and_crashing,
+            return self.propose_trades_for_partial_rebalancing(
                 market_state,
+                buffed_and_crashing,
             )
-            return proposed
+
         return

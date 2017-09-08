@@ -3,8 +3,6 @@ from abc import ABCMeta
 from abc import abstractmethod
 from logging import getLogger
 from typing import FrozenSet
-from typing import Generator
-from typing import Iterable
 from typing import List
 
 from moneybot.market.history import MarketHistory
@@ -104,7 +102,6 @@ class Strategy(metaclass=ABCMeta):
     def __init__(self, fiat: str, trade_interval: int) -> None:
         self.fiat = fiat
         self.trade_interval = trade_interval  # Time between trades, in seconds
-        self.has_proposed_initial_trades = False
 
     @abstractmethod
     def propose_trades(
@@ -118,103 +115,107 @@ class Strategy(metaclass=ABCMeta):
     Trade proposal utilities
     '''
 
+    def _ideal_fiat_value_per_coin(self, market_state: MarketState) -> float:
+        """We define "ideal" value as total value (in fiat) / # of available
+        coins (including fiat).
+        """
+        total_value = market_state.estimate_total_value()
+        num_coins = len(market_state.available_coins())
+        return total_value / num_coins
+
     def _possible_investments(self, market_state: MarketState) -> FrozenSet[str]:
         '''
-        Returns a set of all coins that the strategy might invest in,
-        not including the fiat.
+        Returns a set of all coins that the strategy might invest in, excluding
+        `self.fiat`.
         '''
         return market_state.available_coins() - {self.fiat}
 
-    '''
-    wow stuff to cut/move
-    '''
-
-    def _propose_trades_to_fiat(
-        self,
-        coins: Iterable[str],
-        fiat_value_per_coin: float,
-        market_state: MarketState,
-    ) -> Generator[ProposedTrade, None, None]:
-        for coin in coins:
-            if coin != self.fiat:
-                # Sell `coin` for `fiat`,
-                # estimating how much `fiat` we should bid
-                # (and how much `coin` we should ask for)
-                # given the fiat value we want that coin to have after the trade
-                proposed = ProposedTrade(coin, self.fiat, fiat_value_per_coin)
-                yield proposed
-
-    def _propose_trades_from_fiat(
-        self,
-        coins: Iterable[str],
-        fiat_investment_per_coin: float,
-        market_state: MarketState,
-    ) -> Generator[ProposedTrade, None, None]:
-        for coin in coins:
-            proposed = ProposedTrade(self.fiat, coin, fiat_investment_per_coin)
-            yield proposed
-
-    def initial_proposed_trades(
+    def propose_trades_for_total_rebalancing(
         self,
         market_state: MarketState,
-    ) -> Generator[ProposedTrade, None, None]:
-        """Initial trades should get us as close as possible to an equal
-        distribution of value (w/r/t fiat) across all "reachable" markets
-        (those in which the base currency is our "fiat").
+    ) -> List[ProposedTrade]:
+        """A total rebalancing should get us as close as possible to an equal
+        distribution of value (w/r/t `self.fiat`) across all "reachable"
+        markets (those in which the base currency is `self.fiat`).
         """
-        total_value = market_state.estimate_total_value()
-        target_coins = self._possible_investments(market_state)
-        ideal_fiat_value_per_coin = total_value / (len(target_coins) + 1.0)  # Including fiat
+        ideal_fiat_value_per_coin = self._ideal_fiat_value_per_coin(market_state)
 
         est_values = market_state.estimate_values()
 
-        # 1) Propose trades that would have us buy fiat
-        for coin in target_coins:
+        coins_to_sell = {}
+        coins_to_buy = {}
+        for coin in self._possible_investments(market_state):
             value = est_values.get(coin, 0)
             delta = value - ideal_fiat_value_per_coin
             if delta > 0:
-                yield ProposedTrade(coin, self.fiat, delta)
+                coins_to_sell[coin] = delta
+            elif delta < 0:
+                coins_to_buy[coin] = abs(delta)
 
-        # 2) Propose trades that would have us sell fiat
-        for coin in target_coins:
-            value = est_values.get(coin, 0)
-            delta = value - ideal_fiat_value_per_coin
-            if delta < 0:
-                yield ProposedTrade(self.fiat, coin, abs(delta))
+        trades_to_fiat = [
+            ProposedTrade(sell_coin, self.fiat, fiat_value)
+            for sell_coin, fiat_value
+            in coins_to_sell.items()
+        ]
 
-    # TODO Trade directly from X to Y!
-    def rebalancing_proposed_trades(
+        trades_from_fiat = [
+            ProposedTrade(self.fiat, buy_coin, fiat_value)
+            for buy_coin, fiat_value
+            in coins_to_buy.items()
+        ]
+
+        return trades_to_fiat + trades_from_fiat
+
+    def propose_trades_for_partial_rebalancing(
         self,
-        coins_to_rebalance: List[str],
         market_state: MarketState,
+        coins_to_rebalance: FrozenSet[str],
     ) -> List[ProposedTrade]:
+        """TODO: Trade directly from X to Y without going through fiat.
+        """
+        ideal_fiat_value_per_coin = self._ideal_fiat_value_per_coin(market_state)
 
-        # First, we will "fan in,"
-        # selling all of our coins_to_rebalance to fiat
-        possible_investments = self._possible_investments(market_state)
-        total_value = market_state.estimate_total_value()
-        ideal_fiat_value_per_coin = total_value / len(possible_investments)
-        coins_to_invest_in = possible_investments - set(coins_to_rebalance) - {self.fiat}
+        est_values = market_state.estimate_values()
 
-        proposed_trades_to_fiat = list(self._propose_trades_to_fiat(coins_to_rebalance,
-                                                                    ideal_fiat_value_per_coin,
-                                                                    market_state))
-        # If we have proposed to do anything,
-        if self.fiat in coins_to_rebalance and len(proposed_trades_to_fiat) > 0:
-            # we will "fan out,"
-            # selling fiat to the coins we wish to buy.
-            # First we'll simulate executing trades to fiat
-            est_bals_after_fiat_trades = market_state.simulate_trades(proposed_trades_to_fiat)
-            # We'll then use these simulated amounts to plan ahead trades
-            # from fiat to our target investment coins.
-            fiat_after_trades = est_bals_after_fiat_trades[self.fiat]
-            to_redistribute = fiat_after_trades - ideal_fiat_value_per_coin
-            to_redistribute_per_coin = to_redistribute / len(coins_to_invest_in)
-            proposed_trades_from_fiat = self._propose_trades_from_fiat(coins_to_invest_in,
-                                                                       to_redistribute_per_coin,
-                                                                       market_state)
-            trades = proposed_trades_to_fiat + list(proposed_trades_from_fiat)
+        # 1) Fan in to fiat, selling excess value in coins we want to rebalance
+        trades_to_fiat = []
+        for sell_coin in coins_to_rebalance:
+            if sell_coin == self.fiat:
+                continue
+            value = est_values.get(sell_coin, 0)
+            delta = value - ideal_fiat_value_per_coin
+            if delta > 0:
+                trades_to_fiat.append(
+                    ProposedTrade(sell_coin, self.fiat, delta)
+                )
 
-            return trades
+        # 2) Simulate trades and estimate portfolio state afterwards
+        est_balances_after_trades = market_state.simulate_trades(trades_to_fiat)
+        est_values_after_trades = market_state.estimate_values(est_balances_after_trades)
 
-        return proposed_trades_to_fiat
+        fiat_after_trades = est_balances_after_trades[self.fiat]
+        fiat_to_redistribute = fiat_after_trades - ideal_fiat_value_per_coin
+        if fiat_to_redistribute <= 0:
+            return trades_to_fiat
+
+        # 3) Find coins in which we don't hold enough value
+        possible_buys = set()
+        for buy_coin in self._possible_investments(market_state):
+            value = est_values_after_trades.get(buy_coin, 0)
+            if ideal_fiat_value_per_coin > value:
+                possible_buys.add(buy_coin)
+
+        fiat_to_redistribute_per_coin = fiat_to_redistribute / len(possible_buys)
+
+        # 4) Plan trades, fanning back out from fiat to others
+        trades_from_fiat = []
+        for buy_coin in possible_buys:
+            value = est_values_after_trades.get(buy_coin, 0)
+            delta = ideal_fiat_value_per_coin - value
+            if delta > 0:
+                available_fiat = min(fiat_to_redistribute_per_coin, delta)
+                trades_from_fiat.append(
+                    ProposedTrade(self.fiat, buy_coin, available_fiat),
+                )
+
+        return trades_to_fiat + trades_from_fiat

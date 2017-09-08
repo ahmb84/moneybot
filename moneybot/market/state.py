@@ -78,32 +78,35 @@ class MarketState:
     def held_coins_with_chart_data(self) -> FrozenSet[str]:
         return self._held_coins() & self.available_coins()
 
-    def estimate_values(self, **kwargs) -> Dict[str, float]:
+    def estimate_values(self, balances=None, **price_kwargs) -> Dict[str, float]:
         '''
         Returns a dict where keys are coin names,
         and values are the value of our holdings in fiat.
         '''
+        if balances is None:
+            balances = self.balances
+
         fiat_values = {}
         remove = []
-        for coin, amount_held in self.balances.items():
+        for coin, amount_held in balances.items():
             try:
                 if coin == self.fiat:
                     fiat_values[coin] = amount_held
                 else:
                     relevant_market = f'{self.fiat}_{coin}'
-                    fiat_price = self.price(relevant_market, **kwargs)
+                    fiat_price = self.price(relevant_market, **price_kwargs)
                     fiat_values[coin] = fiat_price * amount_held
             except KeyError:
                 try:
                     relevant_market = f'{coin}_{self.fiat}'
-                    fiat_price = self.price(relevant_market, **kwargs)
+                    fiat_price = self.price(relevant_market, **price_kwargs)
                     fiat_values[coin] = amount_held / fiat_price
                 except KeyError:
                     logger.warn(f'Cannot find a price for {relevant_market}. Has it been delisted? Removing from balances.')
                     fiat_values[coin] = 0
                     remove.append(coin)
         for removal in remove:
-            self.balances.pop(removal)
+            balances.pop(removal)
         return fiat_values
 
     def estimate_total_value(self, **kwargs) -> float:

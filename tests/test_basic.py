@@ -50,10 +50,10 @@ def expected_results():
     ]
 
 
-def test_strategies(expected_results):
-    '''
-    Strategies should produce their expected values
-    '''
+def test_strategies_btc_only(expected_results):
+    """Strategies should produce their expected values when starting with a
+    fiat-only portfolio.
+    """
     # The start and end of our test period
     start = '2017-05-01'
     end = '2017-06-01'
@@ -69,13 +69,36 @@ def test_strategies(expected_results):
         )
         fund = Fund(strategy, adapter)
         res = list(fund.begin_backtest(start, end))
-        # print(res)
+        assert res == expected['values']
+
+
+@pytest.mark.skip
+def test_strategies_mixed_start(expected_results):
+    """Strategies should produce their expected values when starting with a
+    mixed portfolio.
+
+    TODO: Enable this once we agree on what the values should be.
+    """
+    # The start and end of our test period
+    start = '2017-05-01'
+    end = '2017-06-01'
+    fiat = config.read_string('trading.fiat')
+    interval = config.read_int('trading.interval')
+
+    for expected in expected_results:
+        strategy = expected['strategy'](fiat, interval)
+        adapter = BacktestMarketAdapter(
+            MarketHistoryMock(),
+            {'BTC': 1.0, 'ETH': 12.3},
+            fiat,
+        )
+        fund = Fund(strategy, adapter)
+        res = list(fund.begin_backtest(start, end))
         assert res == expected['values']
 
 
 def test_all_results_diff(expected_results):
-    '''
-    No two results should be equal.
-    '''
+    """No two results should be equal.
+    """
     for i, expected in enumerate(expected_results[:-1]):
         assert expected != expected_results[i + 1]
