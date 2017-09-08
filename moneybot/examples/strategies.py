@@ -41,14 +41,15 @@ class BuffedCoinStrategy(Strategy):
     def find_buffed_coins(self, market_state):
         est_values = market_state.estimate_values()
         buffed_coins = [
-            coin for coin in market_state.held_coins_with_chart_data()
+            coin for coin
+            in market_state.held_coins_with_chart_data()
             if self.is_buffed(coin, est_values)
         ]
         return buffed_coins
 
     def propose_trades(self, market_state, market_history):
-        # If we're just starting up, make initial trades
-        if market_state.only_holding(self.fiat):
+        # If there are coins we don't own, perform a total rebalancing
+        if len(market_state.available_coins_not_held()) > 0:
             return self.propose_trades_for_total_rebalancing(market_state)
 
         # Otherwise, see if any of our holdings are buffed

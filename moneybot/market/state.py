@@ -75,6 +75,9 @@ class MarketState:
         markets = self._available_markets()  # All of these start with fiat
         return frozenset(self._coin_names(m)[1] for m in markets) | {self.fiat}
 
+    def available_coins_not_held(self) -> FrozenSet[str]:
+        return self.available_coins() - self._held_coins()
+
     def held_coins_with_chart_data(self) -> FrozenSet[str]:
         return self._held_coins() & self.available_coins()
 
