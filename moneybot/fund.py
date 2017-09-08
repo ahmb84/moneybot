@@ -42,6 +42,22 @@ class Fund:
         # MarketHistory stores historical market data
         self.market_history = adapter.market_history
 
+    def reset(self) -> float:
+        """Resetting the fund brings it back to a value-balanced state, i.e.
+        we hold an equal value (measured in fiat) of every coin available to us.
+        """
+        logger.info('Resetting fund')
+
+        now = datetime.now()
+        market_state = self.market_adapter.get_market_state(now)
+        proposed_trades = self.strategy.propose_trades_for_total_rebalancing(market_state)
+        if proposed_trades:
+            self.market_adapter.filter_and_execute(proposed_trades)
+
+        usd_val = self.market_adapter.market_state.estimate_total_value_usd()
+        logger.info(f'Est. USD value: {usd_val}')
+        return usd_val
+
     def step(self, time: datetime) -> float:
         # We make a copy of our MarketAdapter's market_state
         # This way, we can pass the copy to Strategy.propose_trades()
@@ -70,29 +86,30 @@ class Fund:
         return usd_value
 
     def run_live(self):
-        start_time = time()
         period = self.strategy.trade_interval
+        logger.info(f'Live trading with {period} seconds between steps')
+
         while True:
-            # Note time when loop starts, so we can account for how long it
-            # takes to run
-            cur_time = datetime.now()
+            step_start = time()
+            cur_dt = datetime.now()
             try:
                 # Before anything, get freshest data from Poloniex
                 self.market_history.scrape_latest()
                 # Now the fund can step()
-                logger.info(f'Fund::step({cur_time})')
-                usd_val = self.step(cur_time)
+                logger.info(f'Fund::step({cur_dt})')
+                usd_val = self.step(cur_dt)
                 # After its step, we have got the USD value.
                 logger.info(f'Est. USD value: {usd_val}')
             except PoloniexServerError:
                 logger.exception(
                     'Received server error from Poloniex; sleeping until next step'
                 )
-            # Wait until our next time to run, accounting for the time that
-            # this step took to run
-            step_time = time() - start_time
+
+            # Wait until our next time to run, accounting for the time taken by
+            # this step to run
+            step_time = time() - step_start
+            sleep_time = (period - step_time) % period
             logger.debug(f'Trading step took {step_time} seconds')
-            sleep_time = period - (step_time % period)
             logger.debug(f'Sleeping {sleep_time} seconds until next step')
             sleep(sleep_time)
 

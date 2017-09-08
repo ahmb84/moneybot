@@ -30,6 +30,9 @@ def main(args):
     adapter = LiveMarketAdapter(MarketHistory(), fiat)
 
     fund = Fund(strategy, adapter)
+
+    if args.reset is True:
+        fund.reset()
     fund.run_live()
 
 
@@ -54,7 +57,13 @@ if __name__ == '__main__':
         type=str,
         choices=strategies.keys(),
     )
-    args = parser.parse_args()
 
+    parser.add_argument(
+        '--reset',
+        action='store_true',
+        help='Reset fund (equal values in each coin) before starting to live trade',
+    )
+
+    args = parser.parse_args()
     logging.basicConfig(level=args.log_level)
     main(args)
