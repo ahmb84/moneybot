@@ -32,7 +32,9 @@ def main(args):
     fund = Fund(strategy, adapter)
 
     if args.reset is True:
-        fund.reset()
+        confirm = input('Are you sure you want to reset your fund? [y/N] ')
+        if confirm.strip().lower() == 'y':
+            fund.reset()
     fund.run_live()
 
 
