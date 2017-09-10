@@ -42,9 +42,9 @@ class Fund:
         # MarketHistory stores historical market data
         self.market_history = adapter.market_history
 
-    def reset(self) -> float:
-        """Resetting the fund brings it back to a value-balanced state, i.e.
-        we hold an equal value (measured in fiat) of every coin available to us.
+    def rebalance(self) -> float:
+        """Reset the fund to a value-balanced state, i.e. we hold an equal
+        value (measured in fiat) of every coin available to us.
         """
         logger.info('Resetting fund')
 

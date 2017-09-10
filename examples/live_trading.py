@@ -31,10 +31,10 @@ def main(args):
 
     fund = Fund(strategy, adapter)
 
-    if args.reset is True:
-        confirm = input('Are you sure you want to reset your fund? [y/N] ')
+    if args.force_rebalance is True:
+        confirm = input('Are you sure you want to rebalance your fund? [y/N] ')
         if confirm.strip().lower() == 'y':
-            fund.reset()
+            fund.rebalance()
     fund.run_live()
 
 
@@ -61,9 +61,9 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        '--reset',
+        '--force-rebalance',
         action='store_true',
-        help='Reset fund (equal values in each coin) before starting to live trade',
+        help='Equalize value held in all available coins before starting to live trade',
     )
 
     args = parser.parse_args()
