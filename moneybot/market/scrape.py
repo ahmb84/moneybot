@@ -70,12 +70,12 @@ def marshall(hist_df):
 
 
 def historical_prices_of(
-        polo: PoloniexPublicAPI,
-        btc_price_history: Series,
-        pair: str,
-        period: int = 900,
-        start: Optional[float] = None,
-        end: Optional[float] = None
+    polo: PoloniexPublicAPI,
+    btc_price_history: Series,
+    pair: str,
+    period: int = 900,
+    start: Optional[float] = None,
+    end: Optional[float] = None,
 ) -> Iterable[Series]:
     '''
     Returns a series of time-indexed prices.
@@ -128,7 +128,6 @@ def insert(cursor, row):
 
 
 def scrape_since_last_reading():
-
     # postgres client
     client = Postgres.get_client()
     cursor = client.cursor()

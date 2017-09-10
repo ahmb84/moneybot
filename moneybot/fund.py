@@ -49,6 +49,7 @@ class Fund:
         logger.info('Resetting fund')
 
         now = datetime.now()
+        self.market_history.scrape_latest()
         market_state = self.market_adapter.get_market_state(now)
         proposed_trades = self.strategy.propose_trades_for_total_rebalancing(market_state)
         if proposed_trades:
