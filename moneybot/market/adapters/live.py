@@ -32,7 +32,7 @@ class LiveMarketAdapter(MarketAdapter):
     def get_balances(self) -> Dict[str, float]:
         bals = self.polo.return_complete_balances()
         all_balances = {}
-        for coin, bal, in bals.items():
+        for (coin, bal) in bals.items():
             avail = float(bal['available'])
             if avail > 0:
                 all_balances[coin] = avail

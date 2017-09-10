@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
-from typing import Dict
-from typing import List
-from typing import Set
-from typing import Tuple
-
 from datetime import datetime
 from logging import getLogger
+from typing import Dict
+from typing import FrozenSet
+from typing import Tuple
+
 
 logger = getLogger(__name__)
 
@@ -31,23 +30,24 @@ class MarketState:
     Private methods
     '''
 
-    def _held_coins(self) -> List[str]:
-        return [
-            k for k
-            in self.balances.keys()
-            if self.balances[k] > 0
-        ]
+    def _held_coins(self) -> FrozenSet[str]:
+        return frozenset(
+            coin for (coin, balance)
+            in self.balances.items()
+            if balance > 0
+        )
 
     def _coin_names(self, market_name: str) -> Tuple[str, str]:
-        coins = market_name.split('_')
-        return coins[0], coins[1]
+        base, quote = market_name.split('_', 1)
+        return (base, quote)
 
-    def _available_markets(self) -> Set[str]:
-        return {
-            k for k
-            in self.chart_data.keys()
-            if k.startswith(self.fiat)
-        }
+    def _available_markets(self) -> FrozenSet[str]:
+        return frozenset(
+            filter(
+                lambda market: market.startswith(self.fiat),
+                self.chart_data.keys(),
+            )
+        )
 
     '''
     Public methods
@@ -59,8 +59,7 @@ class MarketState:
         '''
         return self.balances[coin]
 
-    # TODO types
-    def price(self, market, key='weighted_average'):
+    def price(self, market: str, key='weighted_average') -> float:
         '''
         Returns the price of a market, in terms of the base asset.
         '''
@@ -70,42 +69,47 @@ class MarketState:
         '''
         Returns true if the only thing we are holding is `coin`
         '''
-        return self._held_coins() == [coin]
+        return self._held_coins() == {coin}
 
-    def available_coins(self) -> Set[str]:
-        markets = self._available_markets()
-        return {self._coin_names(market)[1] for market in markets} | {self.fiat}
+    def available_coins(self) -> FrozenSet[str]:
+        markets = self._available_markets()  # All of these start with fiat
+        return frozenset(self._coin_names(m)[1] for m in markets) | {self.fiat}
 
-    def held_coins_with_chart_data(self) -> Set[str]:
-        avail_coins = self.available_coins()
-        return set(self._held_coins()).intersection(avail_coins)
+    def available_coins_not_held(self) -> FrozenSet[str]:
+        return self.available_coins() - self._held_coins()
 
-    def estimate_values(self, **kwargs) -> Dict[str, float]:
+    def held_coins_with_chart_data(self) -> FrozenSet[str]:
+        return self._held_coins() & self.available_coins()
+
+    def estimate_values(self, balances=None, **price_kwargs) -> Dict[str, float]:
         '''
         Returns a dict where keys are coin names,
         and values are the value of our holdings in fiat.
         '''
+        if balances is None:
+            balances = self.balances
+
         fiat_values = {}
         remove = []
-        for coin, amount_held in self.balances.items():
+        for coin, amount_held in balances.items():
             try:
                 if coin == self.fiat:
                     fiat_values[coin] = amount_held
                 else:
                     relevant_market = f'{self.fiat}_{coin}'
-                    fiat_price = self.price(relevant_market, **kwargs)
+                    fiat_price = self.price(relevant_market, **price_kwargs)
                     fiat_values[coin] = fiat_price * amount_held
             except KeyError:
                 try:
                     relevant_market = f'{coin}_{self.fiat}'
-                    fiat_price = self.price(relevant_market, **kwargs)
+                    fiat_price = self.price(relevant_market, **price_kwargs)
                     fiat_values[coin] = amount_held / fiat_price
                 except KeyError:
                     logger.warn(f'Cannot find a price for {relevant_market}. Has it been delisted? Removing from balances.')
                     fiat_values[coin] = 0
                     remove.append(coin)
         for removal in remove:
-            self.balances.pop(removal)
+            balances.pop(removal)
         return fiat_values
 
     def estimate_total_value(self, **kwargs) -> float:

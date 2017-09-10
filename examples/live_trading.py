@@ -30,6 +30,11 @@ def main(args):
     adapter = LiveMarketAdapter(MarketHistory(), fiat)
 
     fund = Fund(strategy, adapter)
+
+    if args.force_rebalance is True:
+        confirm = input('Are you sure you want to rebalance your fund? [y/N] ')
+        if confirm.strip().lower() == 'y':
+            fund.rebalance()
     fund.run_live()
 
 
@@ -54,7 +59,13 @@ if __name__ == '__main__':
         type=str,
         choices=strategies.keys(),
     )
-    args = parser.parse_args()
 
+    parser.add_argument(
+        '--force-rebalance',
+        action='store_true',
+        help='Equalize value held in all available coins before starting to live trade',
+    )
+
+    args = parser.parse_args()
     logging.basicConfig(level=args.log_level)
     main(args)
