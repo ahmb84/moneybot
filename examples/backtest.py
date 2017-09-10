@@ -67,7 +67,7 @@ if __name__ == '__main__':
         type=str,
         choices=strategies.keys(),
     )
-    args = parser.parse_args()
 
-    logging.basicConfig(level=args.log_level)
+    args = parser.parse_args()
+    logging.getLogger().setLevel(args.log_level)
     main(args)

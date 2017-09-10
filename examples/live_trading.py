@@ -67,5 +67,5 @@ if __name__ == '__main__':
     )
 
     args = parser.parse_args()
-    logging.basicConfig(level=args.log_level)
+    logging.getLogger().setLevel(args.log_level)
     main(args)
