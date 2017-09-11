@@ -98,7 +98,7 @@ class Fund:
                 # The caller can "queue up" a force rebalance
                 # for the next trading step.
                 # If that's been done,
-                if self.force_rebalance_next_step = True:
+                if self.force_rebalance_next_step:
                     # We can pass it down to `self.step()`
                     usd_val = self.step(cur_dt, force_rebalance=True)
                     # And disable it for next time.
