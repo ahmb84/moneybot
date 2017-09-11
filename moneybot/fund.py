@@ -62,7 +62,7 @@ class Fund:
     def step(
         self,
         time: datetime,
-        force_rebalance: bool = False
+        force_rebalance: bool = False,
     ) -> float:
         # We make a copy of our MarketAdapter's market_state
         # This way, we can pass the copy to Strategy.propose_trades()
@@ -74,6 +74,7 @@ class Fund:
         copied_market_state = deepcopy(market_state)
         # Optionally, we can we rebalance the whole fund manually
         if force_rebalance:
+            print('FORCING A REBALANCE!!!!!!!!!!!!!!!')
             proposed_trades = self.strategy.propose_trades_for_total_rebalancing(market_state)
         else:
             # Otherwise, the fund will decide if it's time to rebalance
