@@ -61,8 +61,7 @@ class Fund:
         copied_market_state = deepcopy(market_state)
         # Optionally, we can we rebalance the whole fund manually
         if force_rebalance:
-            # TODO This doesn't work right now
-            proposed_trades = self.strategy.propose_trades_for_total_rebalancing(market_state)
+            proposed_trades = self.strategy.propose_trades_for_total_rebalancing(copied_market_state)
         else:
             # Otherwise, the fund will decide if it's time to rebalance
             # using its method `propose trades`. If you're writing a
@@ -98,15 +97,11 @@ class Fund:
                 # The caller can "queue up" a force rebalance
                 # for the next trading step.
                 # If that's been done,
-                if self.force_rebalance_next_step:
-                    # We can pass it down to `self.step()`
-                    usd_val = self.step(cur_dt, force_rebalance=True)
-                    # And disable it for next time.
-                    self.force_rebalance_next_step = False
-                # Otherwise,
-                else:
-                    # Just perform a regular step
-                    usd_val = self.step(cur_dt)
+                # We can pass it down to `self.step()`
+                usd_val = self.step(cur_dt, force_rebalance=self.force_rebalance_next_step)
+                # In either case,
+                # we disable this rebalance for next time
+                self.force_rebalance_next_step = False
                 # After its step, we have got the USD value.
                 logger.info(f'Est. USD value: {usd_val}')
             except PoloniexServerError:
