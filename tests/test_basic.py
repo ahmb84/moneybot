@@ -61,9 +61,10 @@ def test_strategy_force_rebalacne():
     # but force a rebalance for it,
     # the following value should *not* be what we expect
     new_value = fund.step(Timestamp('2017-06-01'), force_rebalance=True)
-    # Should not equal the next value we would have seen before
-    assert new_value != 3801.01
-    # Instead, equals some new value post-rebalance
+    # If we had NOT rebalanced,
+    # The value here would have been
+    #   3801.01
+    # Instead, we should see some other value:
     assert new_value == 3851.61
 
 
