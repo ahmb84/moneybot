@@ -41,25 +41,16 @@ class Fund:
         self.market_adapter = adapter
         # MarketHistory stores historical market data
         self.market_history = adapter.market_history
+        # A boolean the caller can set
+        # to force a rebalance on the next trading step
+        # (after that rebalance, this will be reset to `False`)
+        self.force_rebalance_next_step = False
 
-    def rebalance(self) -> float:
-        """Reset the fund to a value-balanced state, i.e. we hold an equal
-        value (measured in fiat) of every coin available to us.
-        """
-        logger.info('Resetting fund')
-
-        now = datetime.now()
-        self.market_history.scrape_latest()
-        market_state = self.market_adapter.get_market_state(now)
-        proposed_trades = self.strategy.propose_trades_for_total_rebalancing(market_state)
-        if proposed_trades:
-            self.market_adapter.filter_and_execute(proposed_trades)
-
-        usd_val = self.market_adapter.market_state.estimate_total_value_usd()
-        logger.info(f'Est. USD value: {usd_val}')
-        return usd_val
-
-    def step(self, time: datetime) -> float:
+    def step(
+        self,
+        time: datetime,
+        force_rebalance: bool = False,
+    ) -> float:
         # We make a copy of our MarketAdapter's market_state
         # This way, we can pass the copy to Strategy.propose_trades()
         # without having to worry about the strategy mutating the market_state
@@ -68,9 +59,14 @@ class Fund:
         # except through ProposedTrades.
         market_state = self.market_adapter.get_market_state(time)
         copied_market_state = deepcopy(market_state)
-        # print('market_state.balances', market_state.balances)
-        # Now, propose trades. If you're writing a strategy, you will implement this method.
-        proposed_trades = self.strategy.propose_trades(copied_market_state, self.market_history)
+        # Optionally, we can we rebalance the whole fund manually
+        if force_rebalance:
+            proposed_trades = self.strategy.propose_trades_for_total_rebalancing(copied_market_state)
+        else:
+            # Otherwise, the fund will decide if it's time to rebalance
+            # using its method `propose trades`. If you're writing a
+            # strategy, you will implement this method!
+            proposed_trades = self.strategy.propose_trades(copied_market_state, self.market_history)
         # If the strategy proposed any trades,
         if proposed_trades:
             # the MarketAdapter will execute them.
@@ -98,7 +94,14 @@ class Fund:
                 self.market_history.scrape_latest()
                 # Now the fund can step()
                 logger.info(f'Fund::step({cur_dt})')
-                usd_val = self.step(cur_dt)
+                # The caller can "queue up" a force rebalance
+                # for the next trading step.
+                # If that's been done,
+                # We can pass it down to `self.step()`
+                usd_val = self.step(cur_dt, force_rebalance=self.force_rebalance_next_step)
+                # In either case,
+                # we disable this rebalance for next time
+                self.force_rebalance_next_step = False
                 # After its step, we have got the USD value.
                 logger.info(f'Est. USD value: {usd_val}')
             except PoloniexServerError:

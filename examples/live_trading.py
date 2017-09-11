@@ -34,7 +34,7 @@ def main(args):
     if args.force_rebalance is True:
         confirm = input('Are you sure you want to rebalance your fund? [y/N] ')
         if confirm.strip().lower() == 'y':
-            fund.rebalance()
+            fund.force_rebalance_next_step = True
     fund.run_live()
 
 
