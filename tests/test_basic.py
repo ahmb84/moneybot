@@ -1,11 +1,64 @@
 # -*- coding: utf-8 -*-
 import pytest
 
+from pandas import Timestamp
+
 from moneybot.examples.strategies import BuffedCoinStrategy
 from moneybot.examples.strategies import BuyHoldStrategy
 from moneybot.fund import Fund
 from moneybot.testing import MarketHistoryMock
 from moneybot.market.adapters.backtest import BacktestMarketAdapter
+
+'''
+Fund method tests
+'''
+
+
+def test_strategy_step():
+    """Strategies can step forward.
+    """
+    fiat = 'BTC'
+    today = Timestamp('2017-05-02')
+
+    initial_balances = {fiat: 1.0}
+
+    strategy = BuyHoldStrategy(fiat, 86400)
+    adapter = BacktestMarketAdapter(
+        MarketHistoryMock(),
+        initial_balances,
+        fiat,
+    )
+    fund = Fund(strategy, adapter)
+
+    new_value = fund.step(today)
+    assert new_value == 1383.51
+
+
+def test_strategy_force_rebalacne():
+    """Strategies can force a rebalance
+    by passing `force_rebalance=True`
+    into `Fund::step`
+    """
+    fiat = 'BTC'
+    today = Timestamp('2017-05-02')
+
+    initial_balances = {fiat: 1.0}
+
+    strategy = BuyHoldStrategy(fiat, 86400)
+    adapter = BacktestMarketAdapter(
+        MarketHistoryMock(),
+        initial_balances,
+        fiat,
+    )
+    fund = Fund(strategy, adapter)
+
+    new_value = fund.step(today, force_rebalance=True)
+    assert new_value == 1383.51
+
+
+'''
+Integration tests
+'''
 
 
 @pytest.mark.parametrize('strategy_cls,expected', [

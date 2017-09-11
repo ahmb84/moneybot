@@ -31,10 +31,11 @@ def main(args):
 
     fund = Fund(strategy, adapter)
 
-    if args.force_rebalance is True:
-        confirm = input('Are you sure you want to rebalance your fund? [y/N] ')
-        if confirm.strip().lower() == 'y':
-            fund.rebalance()
+    # TODO
+    # if args.force_rebalance is True:
+    #     confirm = input('Are you sure you want to rebalance your fund? [y/N] ')
+    #     if confirm.strip().lower() == 'y':
+    #         fund.rebalance()
     fund.run_live()
 
 
