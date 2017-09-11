@@ -1,0 +1,234 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: moneybot
+
+Parameters:
+  AvailabilityZone:
+    Type: String
+    Default: us-west-2a
+    Description: AZ for EC2 instance
+  ImageId:
+    Type: AWS::EC2::Image::Id
+    # curl -s https://cloud-images.ubuntu.com/locator/ec2/releasesTable | grep us-west-2 | grep zesty | grep hvm:ebs-ssd
+    Default: ami-7105e609
+    Description: Base AMI for EC2 instance
+  InstanceType:
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+      - t2.nano
+      - t2.micro
+      - t2.small
+      - m3.medium
+    Description: EC2 instance type
+  VolumeId:
+    Type: AWS::EC2::Volume::Id
+    Description: Data volume to attach to EC2 instance
+
+Resources:
+  Role:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+      Policies:
+        - PolicyName: cloudwatch-logs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:DescribeLogStreams
+                  - logs:PutLogEvents
+                Effect: Allow
+                Resource: arn:aws:logs:*:*:*
+        - PolicyName: ssh-keys
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Action: iam:GetGroup
+                Effect: Allow
+                Resource: !Sub arn:aws:iam::${AWS::AccountId}:group/ssh
+              - Action:
+                  - iam:ListSSHPublicKeys
+                  - iam:GetSSHPublicKey
+                Effect: Allow
+                Resource: '*'
+        - PolicyName: attach-volume
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Action: ec2:AttachVolume
+                Effect: Allow
+                Resource: '*'
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref Role
+
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Ingress security group for moneybot
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+
+  LaunchConfiguration:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      IamInstanceProfile: !Ref InstanceProfile
+      ImageId: !Ref ImageId
+      InstanceMonitoring: false
+      InstanceType: !Ref InstanceType
+      SecurityGroups:
+        - !Ref SecurityGroup
+      UserData:
+        Fn::Base64:
+          !Sub |
+            #cloud-config
+            package_update: true
+            package_upgrade: true
+            packages:
+              - apt-transport-https
+              - ca-certificates
+              - nfs-common
+              - postgresql-client
+              - python3.6
+              - python3.6-venv
+              - software-properties-common
+            write_files:
+              - path: /etc/aws/awslogs.conf
+                permissions: '0644'
+                content: |
+                  [general]
+                  state_file = /var/awslogs/state/agent-state
+                  [/var/log/syslog]
+                  datetime_format = %b %d %H:%M:%S
+                  file = /var/log/syslog
+                  buffer_duration = 5000
+                  log_stream_name = {instance_id}
+                  initial_position = start_of_file
+                  log_group_name = /var/log/syslog
+                  [/var/log/auth.log]
+                  datetime_format = %b %d %H:%M:%S
+                  file = /var/log/auth.log
+                  buffer_duration = 5000
+                  log_stream_name = {instance_id}
+                  initial_position = start_of_file
+                  log_group_name = /var/log/auth.log
+                # https://docs.docker.com/engine/reference/commandline/dockerd#daemon-configuration-file
+              - path: /etc/cron.d/import-users
+                permissions: '0644'
+                content: |
+                  */10 * * * * root /usr/local/sbin/import-users.sh
+              - path: /etc/docker/daemon.json
+                permissions: '0644'
+                content: |
+                  {
+                      "data-root": "/ebs/xvdh/docker"
+                  }
+              - path: /usr/local/sbin/authorized-keys-command.sh
+                permissions: '0755'
+                content: |
+                  #!/bin/bash -e
+                  if [ -z "$1" ]; then
+                      exit 1
+                  fi
+                  aws iam list-ssh-public-keys --user-name "$1" --query "SSHPublicKeys[?Status == 'Active'].[SSHPublicKeyId]" --output text | while read KeyId; do
+                      aws iam get-ssh-public-key --user-name "$1" --ssh-public-key-id "$KeyId" --encoding SSH --query "SSHPublicKey.SSHPublicKeyBody" --output text
+                  done
+              - path: /usr/local/sbin/import-users.sh
+                permissions: '0755'
+                content: |
+                  #!/bin/bash
+                  aws iam get-group --group-name "ssh" --query "Users[].[UserName]" --output text | while read User; do
+                      if id -u "${!User}" >/dev/null 2>&1; then
+                          echo "${!User} exists"
+                      else
+                          /usr/sbin/adduser --disabled-password --gecos "${!User}" "${!User}"
+                          echo "${!User} ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/${!User}"
+                      fi
+                  done
+              - path: /usr/local/sbin/setup-moneybot-instance.sh
+                permissions: '0755'
+                content: |
+                  #!/bin/bash -ex
+                  export INSTANCE_ID="$(curl -s http://169.254.169.254/latest/meta-data/instance-id)"
+                  export AZ="$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone)"
+                  export REGION="${!AZ%?}"
+
+                  # Set up SSH access (do this first!)
+                  echo 'AuthorizedKeysCommand /usr/local/sbin/authorized-keys-command.sh' >> /etc/ssh/sshd_config
+                  echo 'AuthorizedKeysCommandUser nobody' >> /etc/ssh/sshd_config
+                  systemctl restart ssh
+
+                  cd /tmp
+
+                  # Get pip for Python 3.5
+                  wget -q https://bootstrap.pypa.io/get-pip.py
+                  python3.5 get-pip.py
+
+                  # Install awscli
+                  pip3 install awscli
+
+                  # Set up CloudWatch Logs
+                  wget -q https://s3.amazonaws.com/aws-cloudwatch/downloads/latest/awslogs-agent-setup.py
+                  python3.5 ./awslogs-agent-setup.py -n -r "${!REGION}" -c /etc/aws/awslogs.conf
+
+                  # Attach EBS volume
+                  VOLUME_ID="$1"
+                  DIRECTORY="/ebs/xvdh"
+                  mkdir -p "${!DIRECTORY}"
+                  DEVICE="/dev/xvdh"
+                  aws ec2 attach-volume --device "${!DEVICE}" --instance-id "${!INSTANCE_ID}" --region "${!REGION}" --volume-id "${!VOLUME_ID}" || shutdown -h now
+
+                  # Mount EBS volume
+                  while ! [ -e "${!DEVICE}" ] ; do sleep 5 ; done
+                  fsck.ext4 -p "${!DEVICE}"
+                  mkdir -p "${!DIRECTORY}"
+                  echo "${!DEVICE} ${!DIRECTORY} ext4 errors=remount-ro 0 1" >> /etc/fstab
+                  mount -a
+
+                  # Get pip for Python 3.6
+                  python3.6 get-pip.py
+
+                  # Create directories on persistent storage volume
+                  mkdir -p /ebs/xvdh/docker
+                  mkdir -p /ebs/xvdh/pgdata
+
+                  # Install Docker (see https://docs.docker.com/engine/installation/linux/docker-ce/ubuntu/)
+                  curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+                  add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+                  apt-get update
+                  apt-get -y install docker-ce
+                  docker run --rm hello-world
+            runcmd:
+              - /usr/local/sbin/setup-moneybot-instance.sh ${VolumeId}
+              - /usr/local/sbin/import-users.sh
+            power_state:
+              mode: reboot
+
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AvailabilityZones:
+        - !Ref AvailabilityZone
+      DesiredCapacity: 1
+      LaunchConfigurationName: !Ref LaunchConfiguration
+      MaxSize: 1
+      MinSize: 1
+      Tags:
+        - Key: Name
+          PropagateAtLaunch: true
+          Value: moneybot
