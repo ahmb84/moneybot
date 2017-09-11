@@ -44,7 +44,7 @@ class Fund:
         # A boolean the caller can set
         # to force a rebalance on the next trading step
         # (after that rebalance, this will be reset to `False`)
-        self.force_rebalance = False
+        self.force_rebalance_next_step = False
 
     def step(
         self,
@@ -95,14 +95,14 @@ class Fund:
                 self.market_history.scrape_latest()
                 # Now the fund can step()
                 logger.info(f'Fund::step({cur_dt})')
-                # The caller can "queue up" a `force_rebalance`
+                # The caller can "queue up" a force rebalance
                 # for the next trading step.
                 # If that's been done,
-                if self.force_rebalance = True:
+                if self.force_rebalance_next_step = True:
                     # We can pass it down to `self.step()`
                     usd_val = self.step(cur_dt, force_rebalance=True)
                     # And disable it for next time.
-                    self.force_rebalance = False
+                    self.force_rebalance_next_step = False
                 # Otherwise,
                 else:
                     # Just perform a regular step
