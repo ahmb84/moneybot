@@ -42,23 +42,6 @@ class Fund:
         # MarketHistory stores historical market data
         self.market_history = adapter.market_history
 
-    # def rebalance(self) -> float:
-    #     """Reset the fund to a value-balanced state, i.e. we hold an equal
-    #     value (measured in fiat) of every coin available to us.
-    #     """
-    #     logger.info('Resetting fund')
-
-    #     now = datetime.now()
-    #     self.market_history.scrape_latest()
-    #     market_state = self.market_adapter.get_market_state(now)
-    #     proposed_trades = self.strategy.propose_trades_for_total_rebalancing(market_state)
-    #     if proposed_trades:
-    #         self.market_adapter.filter_and_execute(proposed_trades)
-
-    #     usd_val = self.market_adapter.market_state.estimate_total_value_usd()
-    #     logger.info(f'Est. USD value: {usd_val}')
-    #     return usd_val
-
     def step(
         self,
         time: datetime,
@@ -74,7 +57,7 @@ class Fund:
         copied_market_state = deepcopy(market_state)
         # Optionally, we can we rebalance the whole fund manually
         if force_rebalance:
-            print('FORCING A REBALANCE!!!!!!!!!!!!!!!')
+            # TODO This doesn't work right now
             proposed_trades = self.strategy.propose_trades_for_total_rebalancing(market_state)
         else:
             # Otherwise, the fund will decide if it's time to rebalance
