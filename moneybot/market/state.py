@@ -123,11 +123,17 @@ class MarketState:
     ) -> Dict[str, float]:
         """Return a dict mapping coin names to value in terms of the reference
         coin.
+
+        NOTE: If no market exists between a coin and the reference coin, we
+        can't estimate a value for said coin (see docstring for
+        `MarketState::estimate_value`). If this happens, the un-valuable coin
+        will be omitted from the returned dict.
         """
         estimated_values = {}
         for coin, amount in balances.items():
             value = self.estimate_value(coin, amount, reference_coin)
-            estimated_values[coin] = 0 if value is None else value
+            if value is not None:
+                estimated_values[coin] = value
         return estimated_values
 
     def estimate_total_value(

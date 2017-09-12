@@ -45,5 +45,4 @@ def test_estimate_values(state):
     assert state.estimate_values(balances, 'BTC') == {
         'BTC': 8.3,
         'ETH': 0.539370024,
-        'XRP': 0,
     }
