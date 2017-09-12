@@ -119,7 +119,7 @@ class Strategy(metaclass=ABCMeta):
         """We define "ideal" value as total value (in fiat) / # of available
         coins (including fiat).
         """
-        total_value = market_state.estimate_total_value()
+        total_value = market_state.estimate_total_value(market_state.balances, self.fiat)
         num_coins = len(market_state.available_coins())
         return total_value / num_coins
 
@@ -140,7 +140,7 @@ class Strategy(metaclass=ABCMeta):
         """
         ideal_fiat_value_per_coin = self._ideal_fiat_value_per_coin(market_state)
 
-        est_values = market_state.estimate_values()
+        est_values = market_state.estimate_values(market_state.balances, self.fiat)
 
         coins_to_sell = {}
         coins_to_buy = {}
@@ -175,7 +175,7 @@ class Strategy(metaclass=ABCMeta):
         """
         ideal_fiat_value_per_coin = self._ideal_fiat_value_per_coin(market_state)
 
-        est_values = market_state.estimate_values()
+        est_values = market_state.estimate_values(market_state.balances, self.fiat)
 
         # 1) Fan in to fiat, selling excess value in coins we want to rebalance
         trades_to_fiat = []
@@ -191,7 +191,10 @@ class Strategy(metaclass=ABCMeta):
 
         # 2) Simulate trades and estimate portfolio state afterwards
         est_balances_after_trades = market_state.simulate_trades(trades_to_fiat)
-        est_values_after_trades = market_state.estimate_values(est_balances_after_trades)
+        est_values_after_trades = market_state.estimate_values(
+            est_balances_after_trades,
+            self.fiat,
+        )
 
         fiat_after_trades = est_balances_after_trades[self.fiat]
         fiat_to_redistribute = fiat_after_trades - ideal_fiat_value_per_coin

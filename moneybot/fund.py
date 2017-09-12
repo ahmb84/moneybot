@@ -79,7 +79,9 @@ class Fund:
         # print('market_adapter.balances after propose_trades()', # self.market_adapter.balances)
         # Finally, we get the USD value of our whole fund,
         # now that all trades (if there were any) have been executed.
-        usd_value = self.market_adapter.market_state.estimate_total_value_usd()
+        usd_value = self.market_adapter.market_state.estimate_total_value_usd(
+            self.market_adapter.market_state.balances,
+        )
         return usd_value
 
     def run_live(self):

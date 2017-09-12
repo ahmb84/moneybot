@@ -39,7 +39,10 @@ class BuffedCoinStrategy(Strategy):
         return coin_values[coin] > (median_value * type(self).magic_number)
 
     def find_buffed_coins(self, market_state):
-        est_values = market_state.estimate_values()
+        est_values = market_state.estimate_values(
+            market_state.balances,
+            self.fiat,
+        )
         buffed_coins = [
             coin for coin
             in market_state.held_coins_with_chart_data()

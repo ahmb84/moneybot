@@ -118,35 +118,35 @@ class MarketState:
 
     def estimate_values(
         self,
-        balances: Optional[Dict[str, float]] = None,
-        reference_coin: Optional[str] = None,
+        balances: Dict[str, float],
+        reference_coin: str,
     ) -> Dict[str, float]:
         """Return a dict mapping coin names to value in terms of the reference
         coin.
         """
-        if balances is None:
-            balances = self.balances
-        if reference_coin is None:
-            reference_coin = self.fiat
-
         estimated_values = {}
         for coin, amount in balances.items():
             value = self.estimate_value(coin, amount, reference_coin)
             estimated_values[coin] = 0 if value is None else value
         return estimated_values
 
-    def estimate_total_value(self, **kwargs) -> float:
-        '''
-        Returns the sum of all holding values, in fiat.
-        '''
-        return sum(self.estimate_values(**kwargs).values())
+    def estimate_total_value(
+        self,
+        balances: Dict[str, float],
+        reference_coin: str,
+    ) -> float:
+        """Calculate the total value of all holdings in terms of the reference
+        coin.
+        """
+        return sum(self.estimate_values(balances, reference_coin).values())
 
-    def estimate_total_value_usd(self, **kwargs) -> float:
+    def estimate_total_value_usd(self, balances: Dict[str, float]) -> float:
         '''
         Returns the sum of all holding values, in USD.
         '''
-        est = self.estimate_total_value() * self.price('USD_BTC', **kwargs)
-        return round(est, 2)
+        btc_val = self.estimate_total_value(balances, 'BTC')
+        usd_val = btc_val * self.price('USD_BTC')
+        return round(usd_val, 2)
 
     # TODO Not sure this really belongs here
     #       maybe more the job of BacktestMarketAdapter
