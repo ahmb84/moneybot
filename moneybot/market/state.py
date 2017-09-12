@@ -3,6 +3,7 @@ from datetime import datetime
 from logging import getLogger
 from typing import Dict
 from typing import FrozenSet
+from typing import Optional
 from typing import Tuple
 
 
@@ -81,36 +82,58 @@ class MarketState:
     def held_coins_with_chart_data(self) -> FrozenSet[str]:
         return self._held_coins() & self.available_coins()
 
-    def estimate_values(self, balances=None, **price_kwargs) -> Dict[str, float]:
-        '''
-        Returns a dict where keys are coin names,
-        and values are the value of our holdings in fiat.
-        '''
+    def estimate_value(
+        self,
+        coin: str,
+        amount: float,
+        reference_coin: str,
+    ) -> Optional[float]:
+        """Given `amount` of `coin`, estimate its value in terms of
+        `reference_coin`.
+
+        TODO: It would be super awesome if we could calculate this value across
+        multiple hops, e.g. be able to tell the value of x ETH in BCH if we
+        only have access to the markets BTC_ETH and BTC_BCH.
+        """
+        if coin == reference_coin:
+            return amount
+
+        chart_key = 'weighted_average'
+
+        market = f'{reference_coin}_{coin}'
+        if market in self.chart_data:
+            reference_per_coin = self.chart_data[market][chart_key]
+            return amount * reference_per_coin
+
+        # We may have to flip the coins around to find the market
+        market = f'{coin}_{reference_coin}'
+        if market in self.chart_data:
+            coin_per_reference = self.chart_data[market][chart_key]
+            return amount / coin_per_reference
+
+        logger.warning(
+            f"Couldn't find a market for {reference_coin}:{coin}; has it been delisted?",
+        )
+        return None
+
+    def estimate_values(
+        self,
+        balances: Optional[Dict[str, float]] = None,
+        reference_coin: Optional[str] = None,
+    ) -> Dict[str, float]:
+        """Return a dict mapping coin names to value in terms of the reference
+        coin.
+        """
         if balances is None:
             balances = self.balances
+        if reference_coin is None:
+            reference_coin = self.fiat
 
-        fiat_values = {}
-        remove = []
-        for coin, amount_held in balances.items():
-            try:
-                if coin == self.fiat:
-                    fiat_values[coin] = amount_held
-                else:
-                    relevant_market = f'{self.fiat}_{coin}'
-                    fiat_price = self.price(relevant_market, **price_kwargs)
-                    fiat_values[coin] = fiat_price * amount_held
-            except KeyError:
-                try:
-                    relevant_market = f'{coin}_{self.fiat}'
-                    fiat_price = self.price(relevant_market, **price_kwargs)
-                    fiat_values[coin] = amount_held / fiat_price
-                except KeyError:
-                    logger.warn(f'Cannot find a price for {relevant_market}. Has it been delisted? Removing from balances.')
-                    fiat_values[coin] = 0
-                    remove.append(coin)
-        for removal in remove:
-            balances.pop(removal)
-        return fiat_values
+        estimated_values = {}
+        for coin, amount in balances.items():
+            value = self.estimate_value(coin, amount, reference_coin)
+            estimated_values[coin] = 0 if value is None else value
+        return estimated_values
 
     def estimate_total_value(self, **kwargs) -> float:
         '''
