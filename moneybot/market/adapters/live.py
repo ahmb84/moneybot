@@ -4,6 +4,7 @@ from functools import partial
 from logging import getLogger
 from typing import Callable
 from typing import Dict
+from typing import Optional
 
 from pyloniex.constants import OrderType
 from pyloniex.errors import PoloniexRequestError
@@ -98,20 +99,23 @@ class LiveMarketAdapter(MarketAdapter):
         amount: float,
         purchase_fn: Callable,
         adjust_fn: Callable,
-        attempts_remaining: int = 4,
-    ) -> Dict:
+        attempts_remaining: int = 8,
+    ) -> Optional[Dict]:
         make_measurement = partial(self._proposed_trade_measurement,
                                    direction, market, price, amount)
         try:
-            res = purchase_fn(
+            response = purchase_fn(
                 currency_pair=market,
                 rate=price,
                 amount=amount,
                 # Cancel order if not fulfilled in entirity at this price
                 order_type=OrderType.fill_or_kill,
             )
+            data = response.json()
+            logger.debug(data)
             measurement = make_measurement('filled')
             logger.debug(str(measurement))
+            return data
         except PoloniexRequestError as e:
             logger.exception(f'Received {e.status_code} error from Poloniex API')
             # TODO: Order not necessarily killed; investigate actual Polo API
@@ -131,13 +135,14 @@ class LiveMarketAdapter(MarketAdapter):
                     adjust_fn,
                     attempts_remaining=attempts_remaining - 1,
                 )
-        return res
+
+        return None
 
     def _place_order(
         self,
         proposed_trade: ProposedTrade,
         market_state: MarketState,
-    ) -> Dict:
+    ) -> Optional[Dict]:
 
         # in the language of poloniex,
         # buying a market's quote currency is a "buy"
@@ -169,4 +174,4 @@ class LiveMarketAdapter(MarketAdapter):
                 self._adjust_down,
             )
 
-        return {}
+        return None
