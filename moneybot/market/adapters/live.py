@@ -118,8 +118,8 @@ class LiveMarketAdapter(MarketAdapter):
             # response codes
             measurement = make_measurement('killed')
             logger.debug(str(measurement))
-            # If we can't fill the order at this price, recursively again at a
-            # (higher / lower) price
+            # If we can't fill the order at this price, recurse and try again
+            # at a (higher / lower) price
             adjusted_price = adjust_fn(price)
             if attempts_remaining > 0:
                 return self._purchase_helper(
