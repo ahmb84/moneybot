@@ -6,6 +6,7 @@ from typing import Callable
 from typing import Dict
 
 from pyloniex.constants import OrderType
+from pyloniex.errors import PoloniexRequestError
 
 from moneybot.clients import Poloniex
 from moneybot.market.adapters import MarketAdapter
@@ -97,6 +98,7 @@ class LiveMarketAdapter(MarketAdapter):
         amount: float,
         purchase_fn: Callable,
         adjust_fn: Callable,
+        attempts_remaining: int = 4,
     ) -> Dict:
         make_measurement = partial(self._proposed_trade_measurement,
                                    direction, market, price, amount)
@@ -110,20 +112,25 @@ class LiveMarketAdapter(MarketAdapter):
             )
             measurement = make_measurement('filled')
             logger.debug(str(measurement))
-        # If we can't fill the order at this price,
-        except:
+        except PoloniexRequestError as e:
+            logger.exception(f'Received {e.status_code} error from Poloniex API')
+            # TODO: Order not necessarily killed; investigate actual Polo API
+            # response codes
             measurement = make_measurement('killed')
             logger.debug(str(measurement))
-            # recursively again at a (higher / lower) price
+            # If we can't fill the order at this price, recursively again at a
+            # (higher / lower) price
             adjusted_price = adjust_fn(price)
-            return self._purchase_helper(
-                direction,
-                market,
-                adjusted_price,
-                amount,
-                purchase_fn,
-                adjust_fn
-            )
+            if attempts_remaining > 0:
+                return self._purchase_helper(
+                    direction,
+                    market,
+                    adjusted_price,
+                    amount,
+                    purchase_fn,
+                    adjust_fn,
+                    attempts_remaining=attempts_remaining - 1,
+                )
         return res
 
     def _place_order(
