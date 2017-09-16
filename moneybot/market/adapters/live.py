@@ -111,11 +111,10 @@ class LiveMarketAdapter(MarketAdapter):
                 # Cancel order if not fulfilled in entirity at this price
                 order_type=OrderType.fill_or_kill,
             )
-            data = response.json()
-            logger.debug(data)
+            logger.debug(response)
             measurement = make_measurement('filled')
             logger.debug(str(measurement))
-            return data
+            return response
         except PoloniexRequestError as e:
             logger.exception(f'Received {e.status_code} error from Poloniex API')
             # TODO: Order not necessarily killed; investigate actual Polo API
