@@ -29,9 +29,9 @@ def main(args):
         config.read_int('trading.interval'),
     )
     adapter = BacktestMarketAdapter(
+        fiat,
         MarketHistory(),
         {'BTC': 1.0},
-        fiat,
     )
     fund = Fund(strategy, adapter)
 

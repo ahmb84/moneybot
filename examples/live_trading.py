@@ -8,7 +8,7 @@ from moneybot.examples.strategies import BuffedCoinStrategy
 from moneybot.examples.strategies import BuyHoldStrategy
 from moneybot.examples.strategies import PeakRiderStrategy
 from moneybot.fund import Fund
-from moneybot.market.adapters.live import LiveMarketAdapter
+from moneybot.market.adapters.poloniex import PoloniexMarketAdapter
 from moneybot.market.history import MarketHistory
 
 
@@ -27,7 +27,7 @@ def main(args):
         fiat,
         config.read_int('trading.interval'),
     )
-    adapter = LiveMarketAdapter(MarketHistory(), fiat)
+    adapter = PoloniexMarketAdapter(fiat, MarketHistory())
 
     fund = Fund(strategy, adapter)
 

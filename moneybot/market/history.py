@@ -21,7 +21,7 @@ class MarketHistory:
     '''
 
     def __init__(self) -> None:
-        self.client = Postgres.get_client()
+        self.db = Postgres.get_client()
 
     def scrape_latest(self) -> None:
         return scrape_since_last_reading()
@@ -34,7 +34,7 @@ class MarketHistory:
     # and pass them through to the strategy together, sorted ny time.
     # Then, the strategy can then decide how to combine them.
     def latest(self, time: datetime) -> Dict[str, Dict[str, float]]:
-        cursor = self.client.cursor()
+        cursor = self.db.cursor()
         prior_date = time - timedelta(days=1)
         query = cursor.mogrify(
             (
@@ -64,7 +64,7 @@ class MarketHistory:
         quote: str,
         days_back: int=30
     ) -> List[float]:
-        cursor = self.client.cursor()
+        cursor = self.db.cursor()
         currency_pair = f'{base}_{quote}'
         prior_date = time - timedelta(days=days_back)
         query = cursor.mogrify(

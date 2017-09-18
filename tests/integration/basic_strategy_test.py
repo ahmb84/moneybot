@@ -24,9 +24,9 @@ def test_strategy_step():
 
     strategy = BuffedCoinStrategy(fiat, 86400)
     adapter = BacktestMarketAdapter(
+        fiat,
         MarketHistoryMock(),
         initial_balances,
-        fiat,
     )
     fund = Fund(strategy, adapter)
 
@@ -47,14 +47,14 @@ def test_strategy_force_rebalacne():
 
     strategy = BuffedCoinStrategy(fiat, 86400)
     adapter = BacktestMarketAdapter(
+        fiat,
         MarketHistoryMock(),
         initial_balances,
-        fiat,
     )
     fund = Fund(strategy, adapter)
 
     # First we'll run a backtest, and see that the latest value is what we expect
-    results = list(fund.begin_backtest(start, end))
+    results = list(fund.run_backtest(start, end))
     assert results[-1] == 3551.63
 
     # Now, if we do one more step,
@@ -107,13 +107,13 @@ def test_strategy_fiat_only_initial_balance(strategy_cls, expected):
 
     strategy = strategy_cls(fiat, 86400)
     adapter = BacktestMarketAdapter(
+        fiat,
         MarketHistoryMock(),
         initial_balances,
-        fiat,
     )
     fund = Fund(strategy, adapter)
 
-    results = list(fund.begin_backtest(start, end))
+    results = list(fund.run_backtest(start, end))
     assert results == expected
 
 
@@ -151,11 +151,11 @@ def test_strategies_mixed_initial_balance(strategy_cls, expected):
 
     strategy = strategy_cls(fiat, 86400)
     adapter = BacktestMarketAdapter(
+        fiat,
         MarketHistoryMock(),
         initial_balances,
-        fiat,
     )
     fund = Fund(strategy, adapter)
 
-    results = list(fund.begin_backtest(start, end))
+    results = list(fund.run_backtest(start, end))
     assert results == expected
