@@ -78,7 +78,7 @@ class Strategy(metaclass=ABCMeta):
 
         coins_to_sell = {}
         coins_to_buy = {}
-        for coin in self._possible_investments(market_state):
+        for coin in sorted(self._possible_investments(market_state)):
             value = est_values.get(coin, 0)
             delta = value - ideal_fiat_value_per_coin
             if delta > 0:
@@ -113,7 +113,7 @@ class Strategy(metaclass=ABCMeta):
 
         # 1) Fan in to fiat, selling excess value in coins we want to rebalance
         trades_to_fiat = []
-        for sell_coin in coins_to_rebalance:
+        for sell_coin in sorted(coins_to_rebalance):
             if sell_coin == self.fiat:
                 continue
             value = est_values.get(sell_coin, 0)
@@ -149,7 +149,7 @@ class Strategy(metaclass=ABCMeta):
 
         # 4) Plan trades, fanning back out from fiat to others
         trades_from_fiat = []
-        for buy_coin in possible_buys:
+        for buy_coin in sorted(possible_buys):
             value = est_values_after_trades.get(buy_coin, 0)
             delta = ideal_fiat_value_per_coin - value
             if delta > 0:
