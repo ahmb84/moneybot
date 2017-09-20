@@ -27,8 +27,12 @@ def main(args):
         fiat,
         config.read_int('trading.interval'),
     )
-    adapter = PoloniexMarketAdapter(fiat, MarketHistory())
-
+    # TODO: Shouldn't be necessary to provide initial balances for live trading
+    adapter = PoloniexMarketAdapter(
+        fiat,
+        MarketHistory(),
+        {},  # Actual balances will be fetched from Poloniex
+    )
     fund = Fund(strategy, adapter)
 
     if args.force_rebalance is True:
