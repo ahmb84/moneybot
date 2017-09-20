@@ -7,9 +7,10 @@ from typing import Dict
 from typing import List
 from typing import Optional
 
+from moneybot.market import Order
 from moneybot.market.history import MarketHistory
 from moneybot.market.state import MarketState
-from moneybot.strategy import ProposedTrade
+from moneybot.trade import AbstractTrade
 
 
 logger = getLogger(__name__)
@@ -17,110 +18,54 @@ logger = getLogger(__name__)
 
 class MarketAdapter(metaclass=ABCMeta):
 
+    @classmethod
+    @abstractmethod
+    def reify_trades(
+        cls,
+        trades: List[AbstractTrade],
+        market_state: MarketState,
+    ) -> List[Order]:
+        raise NotImplementedError
+
     def __init__(
         self,
+        fiat: str,
         history: MarketHistory,
         initial_balances: Dict[str, float],
-        fiat: str,
     ) -> None:
-        self.market_history = history
-        self.fiat = fiat
-        self.market_state = MarketState(None, initial_balances, None, self.fiat)
+        self._fiat = fiat
+        self._market_history = history
+        self._market_state = MarketState(
+            None,
+            initial_balances,
+            None,
+            self.fiat,
+        )
 
-    @abstractmethod
-    def get_balances(self):
-        raise NotImplementedError
+    @property
+    def fiat(self):
+        return self._fiat
 
-    @abstractmethod
-    def execute(
-        self,
-        proposed_trade: ProposedTrade,
-    ):
-        raise NotImplementedError
+    @property
+    def market_history(self) -> MarketHistory:
+        return self._market_history
 
-    def filter_and_execute(
-        self,
-        proposed_trades: List[ProposedTrade],
-    ) -> None:
-        # First, we must turn proposed trades
-        # into ones we can actually execute
-        # Specifically, we must assure that we can actually
-        # trade between the two currencies proposed.
-        for trade in proposed_trades:
-            trade = self.market_state.set_sell_amount(trade)
-            legal_trade = self.legalize(trade)
-            if legal_trade:
-                balances = self.execute(trade)
-                self.market_state.balances = balances
+    @property
+    def market_state(self) -> MarketState:
+        return self._market_state
 
-    def get_market_state(self, time: datetime) -> MarketState:
+    def update_market_state(self, time: datetime):
         # Get the latest chart data from the market
         charts = self.market_history.latest(time)
         balances = self.get_balances()
-        self.market_state = MarketState(charts, balances, time, self.fiat)
-        return self.market_state
+        self._market_state = MarketState(charts, balances, time, self.fiat)
 
-    def legalize(
-        self,
-        proposed: ProposedTrade,
-    ) -> Optional[ProposedTrade]:
-        # TODO This is pretty Poloniex specific, so we might move it
-        #      to a PoloniexMarketAdapter if we ever add more exchanges.
+    @abstractmethod
+    def get_balances(self) -> Dict[str, float]:
+        raise NotImplementedError
 
-        # Check that we have enough to sell
-        try:
-            held_amount = self.market_state.balances[proposed.sell_coin]
-        except KeyError:
-            logger.warning(
-                f"Trying to sel {proposed.sell_coin}, but none is held."
-            )
-            return None
-
-        if held_amount == 0:
-            logger.warning(
-                f"Trying to sell {proposed.sell_coin}, but none is held."
-            )
-            return None
-
-        if proposed.sell_amount > held_amount:
-            logger.warning(
-                f"Holding {held_amount} {proposed.sell_coin}, but trying to sell more than is held, {proposed.sell_amount}."
-                "Simply selling maximum amount."
-            )
-            proposed.sell_amount = held_amount
-            return proposed
-
-        # Check that proposed bid has a price:
-        if not proposed.price:
-            logger.warning(
-                f'Filtering out proposed trade (has no price): {proposed}.'
-            )
-            return None
-
-        # Check that we are trading a positive amount for a positive amount
-        if proposed.sell_amount < 0 or proposed.buy_amount < 0:
-            logger.warning(
-                'Filtering out proposed trade (bid or ask amount < 0): '
-                f'{proposed}.'
-            )
-            return None
-
-        # Check that the proposed trade exceeds minimum fiat trade amount.
-        if (
-            (proposed.sell_coin == proposed.fiat and proposed.sell_amount < 0.0001) or
-            (proposed.buy_coin == proposed.fiat and proposed.buy_amount < 0.0001)
-        ):
-            logger.warning(
-                'Filtering out proposed trade (transaction too small): '
-                f'{proposed}.'
-            )
-            return None
-
-        # Check that the trade is on a market that exists.
-        if proposed.market_name not in self.market_state.chart_data.keys():
-            logger.warning(
-                f'Filtering out proposed trade (unknown market): {proposed}.'
-            )
-            return None
-
-        return proposed
+    @abstractmethod
+    def execute_order(self, order: Order, attempts: int = 8) -> Optional[int]:
+        """Execute an order, returning an order identifier.
+        """
+        raise NotImplementedError

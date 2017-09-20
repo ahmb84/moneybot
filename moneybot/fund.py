@@ -51,22 +51,22 @@ class Fund:
         time: datetime,
         force_rebalance: bool = False,
     ) -> float:
+        self.market_adapter.update_market_state(time)
         # We make a copy of our MarketAdapter's market_state
         # This way, we can pass the copy to Strategy.propose_trades()
         # without having to worry about the strategy mutating the market_state
         # to pull some sort of shennannigans (even accidentally).
         # This way, the Strategy cannot communicate at all with the MarketAdapter
         # except through ProposedTrades.
-        market_state = self.market_adapter.get_market_state(time)
-        copied_market_state = deepcopy(market_state)
+        market_state = deepcopy(self.market_adapter.market_state)
         # Optionally, we can we rebalance the whole fund manually
         if force_rebalance:
-            proposed_trades = self.strategy.propose_trades_for_total_rebalancing(copied_market_state)
+            proposed_trades = self.strategy.propose_trades_for_total_rebalancing(market_state)
         else:
             # Otherwise, the fund will decide if it's time to rebalance
             # using its method `propose trades`. If you're writing a
             # strategy, you will implement this method!
-            proposed_trades = self.strategy.propose_trades(copied_market_state, self.market_history)
+            proposed_trades = self.strategy.propose_trades(market_state, self.market_history)
         # If the strategy proposed any trades,
         if proposed_trades:
             # the MarketAdapter will execute them.
@@ -75,10 +75,17 @@ class Fund:
             # at the best price we can.
             # In either case, this method is side-effect-y;
             # it sets MarketAdapter.balances, after all trades have been executed.
-            self.market_adapter.filter_and_execute(proposed_trades)
+            orders = self.market_adapter.reify_trades(proposed_trades, market_state)
+            for order in orders:
+                order_id = self.market_adapter.execute_order(order)
+                if order_id is not None:
+                    logger.debug(
+                        f'Successfully executed order {order}; filled as {order_id}'
+                    )
         # print('market_adapter.balances after propose_trades()', # self.market_adapter.balances)
         # Finally, we get the USD value of our whole fund,
         # now that all trades (if there were any) have been executed.
+        self.market_adapter.update_market_state(time)
         usd_value = self.market_adapter.market_state.estimate_total_value_usd(
             self.market_adapter.market_state.balances,
         )
@@ -94,17 +101,12 @@ class Fund:
             try:
                 # Before anything, get freshest data from Poloniex
                 self.market_history.scrape_latest()
-                # Now the fund can step()
                 logger.info(f'Fund::step({cur_dt})')
-                # The caller can "queue up" a force rebalance
-                # for the next trading step.
-                # If that's been done,
-                # We can pass it down to `self.step()`
+                # The caller can "queue up" a force rebalance for the next
+                # trading step.
                 usd_val = self.step(cur_dt, force_rebalance=self.force_rebalance_next_step)
-                # In either case,
-                # we disable this rebalance for next time
+                # In either case, we disable this rebalance for next time
                 self.force_rebalance_next_step = False
-                # After its step, we have got the USD value.
                 logger.info(f'Est. USD value: {usd_val}')
             except PoloniexServerError:
                 logger.exception(
@@ -119,7 +121,7 @@ class Fund:
             logger.debug(f'Sleeping {sleep_time} seconds until next step')
             sleep(sleep_time)
 
-    def begin_backtest(
+    def run_backtest(
         self,
         start_time: str,
         end_time: str,

@@ -7,77 +7,11 @@ from typing import List
 
 from moneybot.market.history import MarketHistory
 from moneybot.market.state import MarketState
+from moneybot.trade import AbstractTrade
+from moneybot.utils import simulate_trades
 
 
 logger = getLogger(__name__)
-
-
-class ProposedTrade:
-    '''
-    ProposedTrades represent possible trades
-    that have not yet been executed by a `MarketAdapter`.
-    They parlay data between the Strategy and the MarketAdapter.
-
-    Specifically, Strategies use a method `propose_trades()` to
-    return a list of ProposedTrades on each trading step. Using a
-    high-level API, a Strategy can propose a plausible trade.
-    The MarketAdapter then decides if this ProposedTrade trade is legal
-    and, if it is, attempts to execute it at the best possible price.
-    '''
-
-    def __init__(
-        self,
-        sell_coin: str,
-        buy_coin: str,
-        fiat_value_to_trade: float,
-        fiat: str = 'BTC',
-        fee: float = 0.0025,
-    ) -> None:
-        self.sell_coin = sell_coin
-        self.buy_coin = buy_coin
-        self.fiat_value_to_trade = fiat_value_to_trade
-        self.fiat = fiat
-        self.market_price = 0.0
-        self.price = 0.0
-        self.buy_amount = 0.0
-        self.sell_amount = 0.0
-        self.fee = fee
-
-        # get the Poloniex market name
-        # Poloniex markets are named `{fiatSymol}_{quoteSymbol}`
-        # By seeing whether from_ or to_ are the fiat,
-        # we will construct the proper market name.
-        # (yes, we can only trade directly fiat to/from fiat for now. sorry!)
-        if sell_coin == fiat:
-            self.market_name = self._get_market_name(fiat, buy_coin)
-        elif buy_coin == fiat:
-            self.market_name = self._get_market_name(fiat, sell_coin)
-        else:
-            logger.warning('Proposing a trade neither to nor from fiat.')
-            raise
-
-        if self.market_name:
-            # Set the "base" and "quote" currency (strings)
-            self.market_base_currency, self.market_quote_currency = self.market_name.split('_')
-
-    def __str__(self) -> str:
-        return '{!s} {!s} for {!s} {!s} (price of {!s} {!s}/{!s} on market {!s})'.format(
-            self.sell_amount, self.sell_coin,
-            self.buy_amount, self.buy_coin,
-            self.price, self.sell_coin, self.buy_coin,
-            self.market_name)
-
-    '''
-    Private methods
-    '''
-
-    def _get_market_name(
-        self,
-        base: str,
-        quote: str,
-    ) -> str:
-        ''' Return Poloniex market name'''
-        return f'{base}_{quote}'
 
 
 class Strategy(metaclass=ABCMeta):
@@ -108,7 +42,7 @@ class Strategy(metaclass=ABCMeta):
         self,
         market_state: MarketState,
         market_history: MarketHistory,
-    ) -> List[ProposedTrade]:
+    ) -> List[AbstractTrade]:
         raise NotImplementedError
 
     '''
@@ -133,7 +67,7 @@ class Strategy(metaclass=ABCMeta):
     def propose_trades_for_total_rebalancing(
         self,
         market_state: MarketState,
-    ) -> List[ProposedTrade]:
+    ) -> List[AbstractTrade]:
         """A total rebalancing should get us as close as possible to an equal
         distribution of value (w/r/t `self.fiat`) across all "reachable"
         markets (those in which the base currency is `self.fiat`).
@@ -144,7 +78,7 @@ class Strategy(metaclass=ABCMeta):
 
         coins_to_sell = {}
         coins_to_buy = {}
-        for coin in self._possible_investments(market_state):
+        for coin in sorted(self._possible_investments(market_state)):
             value = est_values.get(coin, 0)
             delta = value - ideal_fiat_value_per_coin
             if delta > 0:
@@ -153,13 +87,13 @@ class Strategy(metaclass=ABCMeta):
                 coins_to_buy[coin] = abs(delta)
 
         trades_to_fiat = [
-            ProposedTrade(sell_coin, self.fiat, fiat_value)
+            AbstractTrade(sell_coin, self.fiat, self.fiat, fiat_value)
             for sell_coin, fiat_value
             in coins_to_sell.items()
         ]
 
         trades_from_fiat = [
-            ProposedTrade(self.fiat, buy_coin, fiat_value)
+            AbstractTrade(self.fiat, buy_coin, self.fiat, fiat_value)
             for buy_coin, fiat_value
             in coins_to_buy.items()
         ]
@@ -170,7 +104,7 @@ class Strategy(metaclass=ABCMeta):
         self,
         market_state: MarketState,
         coins_to_rebalance: FrozenSet[str],
-    ) -> List[ProposedTrade]:
+    ) -> List[AbstractTrade]:
         """TODO: Trade directly from X to Y without going through fiat.
         """
         ideal_fiat_value_per_coin = self._ideal_fiat_value_per_coin(market_state)
@@ -179,18 +113,21 @@ class Strategy(metaclass=ABCMeta):
 
         # 1) Fan in to fiat, selling excess value in coins we want to rebalance
         trades_to_fiat = []
-        for sell_coin in coins_to_rebalance:
+        for sell_coin in sorted(coins_to_rebalance):
             if sell_coin == self.fiat:
                 continue
             value = est_values.get(sell_coin, 0)
             delta = value - ideal_fiat_value_per_coin
             if delta > 0:
                 trades_to_fiat.append(
-                    ProposedTrade(sell_coin, self.fiat, delta)
+                    AbstractTrade(sell_coin, self.fiat, self.fiat, delta),
                 )
 
         # 2) Simulate trades and estimate portfolio state afterwards
-        est_balances_after_trades = market_state.simulate_trades(trades_to_fiat)
+        est_balances_after_trades = simulate_trades(
+            trades_to_fiat,
+            market_state,
+        )
         est_values_after_trades = market_state.estimate_values(
             est_balances_after_trades,
             self.fiat,
@@ -212,13 +149,13 @@ class Strategy(metaclass=ABCMeta):
 
         # 4) Plan trades, fanning back out from fiat to others
         trades_from_fiat = []
-        for buy_coin in possible_buys:
+        for buy_coin in sorted(possible_buys):
             value = est_values_after_trades.get(buy_coin, 0)
             delta = ideal_fiat_value_per_coin - value
             if delta > 0:
                 available_fiat = min(fiat_to_redistribute_per_coin, delta)
                 trades_from_fiat.append(
-                    ProposedTrade(self.fiat, buy_coin, available_fiat),
+                    AbstractTrade(self.fiat, buy_coin, self.fiat, available_fiat),
                 )
 
         return trades_to_fiat + trades_from_fiat
