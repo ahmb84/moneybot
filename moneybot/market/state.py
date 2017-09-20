@@ -152,4 +152,4 @@ class MarketState:
         '''
         btc_val = self.estimate_total_value(balances, 'BTC')
         usd_val = btc_val * self.price('USD_BTC')
-        return round(usd_val, 2)
+        return usd_val
