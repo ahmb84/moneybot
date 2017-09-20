@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from logging import getLogger
+from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
@@ -173,6 +174,9 @@ class PoloniexMarketAdapter(MarketAdapter):
         else:
             method = self.private_api.sell
 
+        response: Dict[Any, Any] = {}
+        error = None
+
         try:
             response = method(
                 currency_pair=order.market,
@@ -184,34 +188,34 @@ class PoloniexMarketAdapter(MarketAdapter):
             logger.exception(
                 f'Received {e.status_code} error from Poloniex API'
             )
-
-        if 'error' in response:
-            # TODO: Magic strings suck; find a better way to do this
-            if response['error'] == 'Unable to fill order completely.':
-                adjustment = type(self).ORDER_ADJUSTMENT
-
-                if order.direction == Order.Direction.BUY:
-                    # Adjust price up a little
-                    new_price = order.price + adjustment
-                else:
-                    # Adjust price down a little
-                    new_price = order.price - adjustment
-                # Recurse and try again
-                new_order = Order(
-                    order.market,
-                    new_price,
-                    order.amount,
-                    order.direction,
-                    order.type,
-                )
-                return self.execute_order(new_order, attempts - 1)
-            else:
-                return None
+            error = e.message
+        else:
+            error = response.get('error')
 
         if 'orderNumber' in response:
             # Order filled successfully
             for resulting_trade in response['resultingTrades']:
                 logger.info(resulting_trade)
             return response['orderNumber']
+
+        # TODO: Magic strings suck; find a better way to do this
+        if error == 'Unable to fill order completely.':
+            adjustment = type(self).ORDER_ADJUSTMENT
+
+            if order.direction == Order.Direction.BUY:
+                # Adjust price up a little
+                new_price = order.price + adjustment
+            else:
+                # Adjust price down a little
+                new_price = order.price - adjustment
+            # Recurse and try again
+            new_order = Order(
+                order.market,
+                new_price,
+                order.amount,
+                order.direction,
+                order.type,
+            )
+            return self.execute_order(new_order, attempts - 1)
 
         return None
