@@ -27,7 +27,7 @@ logger = getLogger(__name__)
 
 class PoloniexMarketAdapter(MarketAdapter):
 
-    MINIMUM_ORDER_AMOUNT = 0.0001
+    MINIMUM_ORDER_TOTAL = 0.0001
     ORDER_ADJUSTMENT = 0.001
 
     # Class methods
@@ -109,10 +109,10 @@ class PoloniexMarketAdapter(MarketAdapter):
         """Ensure that the given order is actually valid according to the
         constraints imposed by our balances and Poloniex's rules.
         """
-        # Check that we exceed Poloniex's minimum order amount
-        if order.amount < cls.MINIMUM_ORDER_AMOUNT:
+        # Check that we exceed Poloniex's minimum order total
+        if order.price * order.amount < cls.MINIMUM_ORDER_TOTAL:
             raise OrderTooSmallError(
-                f'[{order}] is below minimum amount of {cls.MINIMUM_ORDER_AMOUNT}'
+                f'[{order}] is below minimum total of {cls.MINIMUM_ORDER_TOTAL}'
             )
 
         # Check that we have enough of the currency being sold
@@ -198,7 +198,7 @@ class PoloniexMarketAdapter(MarketAdapter):
         if 'orderNumber' in response:
             logger.info(f'Order [{order}] filled successfully')
             response['currencyPair'] = order.market
-            logger.info(response)
+            logger.info(f'{response}')
             return response['orderNumber']
 
         # TODO: Magic strings suck; find a better way to do this
