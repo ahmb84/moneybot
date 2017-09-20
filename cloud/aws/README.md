@@ -18,10 +18,9 @@ This guide refers to the following variables:
 | Variable | Description | Example |
 | -------- | ----------- | ------- |
 | `$AZ` | Availability zone in which to run your resources (must belong to the region you are launching in) | `us-west-2a` |
-| `$BUCKET` | Name of an S3 bucket you own that will hold the CloudFormation template | `super-duper-moneybot-bucket` |
 | `$VOLUME` | ID of an EBS volume that will hold persistent data for moneybot (e.g. Docker and PostgreSQL data) | `vol-0123456789abcdef0` |
 
-For unknown reasons, the `aws` commands below can fail if you try to use traditional environment variables to pass these variables. It is recommended that you actually substitute them into the commands before execution.
+Set these as environment variables when running the commands below.
 
 ### IAM
 
@@ -71,14 +70,6 @@ Created filesystem on volume: vol-0ac4c9da9cd42c8fd
 
 Take note of the volume ID printed by this script; this is your `$VOLUME`.
 
-### Upload CloudFormation template to S3
-
-You'll need to upload your CloudFormation template to S3 before you can use it to create or update a stack. You must do this any time you modify the template, before invoking `aws cloudformation update-stack` (though it shouldn't be necessary for you to modify this template).
-
-```sh
-aws s3 cp ./cloudformation/moneybot.yml s3://$BUCKET/cloudformation/
-```
-
 ## Off to the races
 
 ### Managing your stack
@@ -87,8 +78,8 @@ When launching your stack for the first time, you'll use `aws cloudformation cre
 ```sh
 aws cloudformation create-stack \
     --stack-name moneybot \
-    --template-url https://s3.amazonaws.com/$BUCKET/cloudformation/moneybot.yml \
-    --parameters ParameterKey=AvailabilityZone,ParameterValue=$AZ ParameterKey=VolumeId,ParameterValue=$VOLUME \
+    --template-body file://cloudformation/moneybot.yml \
+    --parameters "ParameterKey=AvailabilityZone,ParameterValue=${AZ}" "ParameterKey=VolumeId,ParameterValue=${VOLUME}" \
     --capabilities CAPABILITY_IAM
 ```
 
@@ -96,7 +87,7 @@ If you make changes and want to update your existing stack, you'll use `update-s
 ```sh
 aws cloudformation update-stack \
     --stack-name moneybot \
-    --template-url https://s3.amazonaws.com/$BUCKET/cloudformation/moneybot.yml \
+    --template-body file://cloudformation/moneybot.yml \
     --parameters ParameterKey=AvailabilityZone,UsePreviousValue=true ParameterKey=VolumeId,UsePreviousValue=true \
     --capabilities CAPABILITY_IAM
 ```
