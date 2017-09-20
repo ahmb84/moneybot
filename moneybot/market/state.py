@@ -111,7 +111,7 @@ class MarketState:
             coin_per_reference = self.chart_data[market][chart_key]
             return amount / coin_per_reference
 
-        logger.warning(
+        logger.debug(
             f"Couldn't find a market for {reference_coin}:{coin}; has it been delisted?",
         )
         return None

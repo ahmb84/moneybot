@@ -56,7 +56,7 @@ class Order:
         )
 
     def __str__(self) -> str:
-        return f'{self.direction.value.upper()} {self.type.value} {self.market} {self.amount}@{self.price}'
+        return f'{self.direction.value.upper()} {self.type.value} {self.market} {self.amount} @ {self.price}'
 
     # Intrinsic properties
 

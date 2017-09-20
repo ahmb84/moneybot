@@ -72,4 +72,5 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     logging.getLogger().setLevel(args.log_level)
+    logging.getLogger('staticconf.config').setLevel(logging.WARNING)
     main(args)

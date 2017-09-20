@@ -77,12 +77,7 @@ class Fund:
             # it sets MarketAdapter.balances, after all trades have been executed.
             orders = self.market_adapter.reify_trades(proposed_trades, market_state)
             for order in orders:
-                order_id = self.market_adapter.execute_order(order)
-                if order_id is not None:
-                    logger.debug(
-                        f'Successfully executed order {order}; filled as {order_id}'
-                    )
-        # print('market_adapter.balances after propose_trades()', # self.market_adapter.balances)
+                self.market_adapter.execute_order(order)
         # Finally, we get the USD value of our whole fund,
         # now that all trades (if there were any) have been executed.
         self.market_adapter.update_market_state(time)
@@ -104,10 +99,13 @@ class Fund:
                 logger.info(f'Fund::step({cur_dt})')
                 # The caller can "queue up" a force rebalance for the next
                 # trading step.
-                usd_val = self.step(cur_dt, force_rebalance=self.force_rebalance_next_step)
+                usd_val = self.step(
+                    cur_dt,
+                    force_rebalance=self.force_rebalance_next_step,
+                )
                 # In either case, we disable this rebalance for next time
                 self.force_rebalance_next_step = False
-                logger.info(f'Est. USD value: {usd_val}')
+                logger.info(f'Est. USD value: {usd_val:.2f}')
             except PoloniexServerError:
                 logger.exception(
                     'Received server error from Poloniex; sleeping until next step'

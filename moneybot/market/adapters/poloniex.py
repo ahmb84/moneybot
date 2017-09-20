@@ -185,17 +185,20 @@ class PoloniexMarketAdapter(MarketAdapter):
                 order_type=order.type,
             )
         except PoloniexRequestError as e:
-            logger.exception(
-                f'Received {e.status_code} error from Poloniex API'
+            logger.warning(
+                f'Order [{order}] resulted in an error from Poloniex: {e}'
+            )
+            logger.warning(
+                f'{e.request.method} {e.request.url} {e.request.body}'
             )
             error = e.message
         else:
             error = response.get('error')
 
         if 'orderNumber' in response:
-            # Order filled successfully
-            for resulting_trade in response['resultingTrades']:
-                logger.info(resulting_trade)
+            logger.info(f'Order [{order}] filled successfully')
+            response['currencyPair'] = order.market
+            logger.info(response)
             return response['orderNumber']
 
         # TODO: Magic strings suck; find a better way to do this
