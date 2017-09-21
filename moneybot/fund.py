@@ -77,6 +77,11 @@ class Fund:
                 proposed_trades,
                 market_state,
             )
+            logger.debug(
+                f'Attempting to execute {len(orders)} orders based on '
+                f'{len(proposed_trades)} proposed trades'
+            )
+            successful_order_ids = []
             for order in orders:
                 # Each concrete subclass of MarketAdapter decides what it means
                 # to execute an order. For example, PoloniexMarketAdapter
@@ -92,7 +97,13 @@ class Fund:
                 # currently ignore: an order identifier if the execution was
                 # "successful" (whatever that means for the adapter subclass),
                 # or None otherwise.
-                self.market_adapter.execute_order(order)
+                order_id = self.market_adapter.execute_order(order)
+                if order_id is not None:
+                    successful_order_ids.append(order_id)
+            logger.info(
+                f'{len(successful_order_ids)} of {len(orders)} orders '
+                'executed successfully'
+            )
 
         # After the dust has settled, we update our view of the market state.
         self.market_adapter.update_market_state(time)

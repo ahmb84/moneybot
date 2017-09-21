@@ -26,6 +26,10 @@ class BacktestMarketAdapter(PoloniexMarketAdapter):
 
         logger.debug(f'Simulating order: {order}')
         updated_balances = simulate_order(order, self.market_state.balances)
-        # We're mutating the MarketState's balances directly here, which... ¯\_(ツ)_/¯
+        # We mutate the MarketState's balances directly here, which...
+        # ¯\_(ツ)_/¯
         self.market_state.balances.update(updated_balances)
+
+        # Return value is meaningless except for being non-None to indicate
+        # "success"
         return 0
