@@ -52,39 +52,55 @@ class Fund:
         force_rebalance: bool = False,
     ) -> float:
         self.market_adapter.update_market_state(time)
-        # We make a copy of our MarketAdapter's market_state
-        # This way, we can pass the copy to Strategy.propose_trades()
-        # without having to worry about the strategy mutating the market_state
-        # to pull some sort of shennannigans (even accidentally).
-        # This way, the Strategy cannot communicate at all with the MarketAdapter
-        # except through ProposedTrades.
+        # Copy MarketState to prevent mutation by the Strategy (even
+        # accidentally). The Strategy's sole means of communication with the
+        # MarketAdapter and Fund is the list of ProposedTrades it creates.
+        # TODO: Make this unnecessary, either by making MarketState immutable
+        # or by other means.
         market_state = deepcopy(self.market_adapter.market_state)
-        # Optionally, we can we rebalance the whole fund manually
-        if force_rebalance:
+
+        if force_rebalance is True:
             proposed_trades = self.strategy.propose_trades_for_total_rebalancing(market_state)
         else:
-            # Otherwise, the fund will decide if it's time to rebalance
-            # using its method `propose trades`. If you're writing a
-            # strategy, you will implement this method!
-            proposed_trades = self.strategy.propose_trades(market_state, self.market_history)
-        # If the strategy proposed any trades,
+            # Generally, the Strategy decides when to rebalance. If you're
+            # writing your own, this is the method you'll implement!
+            proposed_trades = self.strategy.propose_trades(
+                market_state,
+                self.market_history,
+            )
+
         if proposed_trades:
-            # the MarketAdapter will execute them.
-            # If we're backtesting, these trades won't really happen.
-            # If we're trading for real, we will attempt to execute the proposed trades
-            # at the best price we can.
-            # In either case, this method is side-effect-y;
-            # it sets MarketAdapter.balances, after all trades have been executed.
-            orders = self.market_adapter.reify_trades(proposed_trades, market_state)
+            # We "reify" (n. make (something abstract) more concrete or real)
+            # our proposed AbstractTrades to produce Orders that our
+            # MarketAdapter actually knows how to execute.
+            orders = self.market_adapter.reify_trades(
+                proposed_trades,
+                market_state,
+            )
             for order in orders:
+                # Each concrete subclass of MarketAdapter decides what it means
+                # to execute an order. For example, PoloniexMarketAdapter
+                # actually sends requests to Poloniex's trading API, but
+                # BacktestMarketAdapter just mutates some of its own internal
+                # state.
+                #
+                # In general we don't want this to be side-effect-y, so the way
+                # BacktestMarketAdapter is a little gross. We should try to fix
+                # that.
+                #
+                # MarketAdapter::execute_order returns an Optional[int] that we
+                # currently ignore: an order identifier if the execution was
+                # "successful" (whatever that means for the adapter subclass),
+                # or None otherwise.
                 self.market_adapter.execute_order(order)
-        # Finally, we get the USD value of our whole fund,
-        # now that all trades (if there were any) have been executed.
+
+        # After the dust has settled, we update our view of the market state.
         self.market_adapter.update_market_state(time)
-        usd_value = self.market_adapter.market_state.estimate_total_value_usd(
+
+        # Finally, return the aggregate USD value of our fund.
+        return self.market_adapter.market_state.estimate_total_value_usd(
             self.market_adapter.market_state.balances,
         )
-        return usd_value
 
     def run_live(self):
         period = self.strategy.trade_interval
